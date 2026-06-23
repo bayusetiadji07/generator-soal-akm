@@ -50,8 +50,8 @@ npm install
 
 ```
 api/
-  generate.js   # proxy teks Gemini (gemini-2.5-flash)
-  image.js      # proxy gambar Imagen
+  generate.js   # proxy teks Gemini (gemini-2.5-flash) — butuh GEMINI_API_KEY
+  image.js      # proxy gambar Pollinations.ai (GRATIS, tanpa API key)
 src/
   App.tsx       # UI utama
   main.tsx

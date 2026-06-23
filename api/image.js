@@ -1,15 +1,12 @@
-// Vercel Serverless Function — proxy ke Gemini Imagen (gambar ilustrasi).
+// Vercel Serverless Function — proxy ke Pollinations.ai (generator gambar AI GRATIS, tanpa API key).
+// Diambil di sisi server agar bebas masalah CORS, lalu dikembalikan sebagai data URL base64
+// supaya bisa dikecilkan di browser & tertanam (embed) di file Word.
 
-const MODEL = 'imagen-4.0-generate-001'
+export const maxDuration = 60 // beri waktu cukup; generasi gambar bisa beberapa detik
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
-  }
-
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY belum diatur di environment variable Vercel.' })
   }
 
   const { prompt } = req.body || {}
@@ -17,22 +14,22 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Prompt gambar kosong.' })
   }
 
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:predict?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instances: [{ prompt }],
-          parameters: { sampleCount: 1 },
-        }),
-      }
-    )
+  const seed = Math.floor(Math.random() * 1_000_000)
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=640&height=400&nologo=true&model=flux&seed=${seed}`
 
-    const data = await response.json()
-    return res.status(response.status).json(data)
+  try {
+    const r = await fetch(url)
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '')
+      return res.status(r.status).json({
+        error: `Sumber gambar error ${r.status}${txt ? ': ' + txt.slice(0, 160) : ''}`,
+      })
+    }
+    const arrayBuffer = await r.arrayBuffer()
+    const contentType = r.headers.get('content-type') || 'image/jpeg'
+    const base64 = Buffer.from(arrayBuffer).toString('base64')
+    return res.status(200).json({ dataUrl: `data:${contentType};base64,${base64}` })
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Gagal menghasilkan gambar.' })
+    return res.status(500).json({ error: err.message || 'Gagal mengambil gambar dari sumber.' })
   }
 }

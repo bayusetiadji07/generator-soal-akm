@@ -167,32 +167,23 @@ Format output yang WAJIB dipenuhi:
     }
   };
 
-  // Kecilkan & kompres gambar (PNG base64 dari Imagen sering sangat besar).
-  // Skala ke maxWidth lalu encode ulang ke JPEG agar ringan dan pasti tampil.
-  const compressImage = (dataUrl, maxWidth = 500, quality = 0.72) => {
+  // Kecilkan data URL gambar ke maxWidth lalu encode ulang jadi JPEG ringan.
+  const shrinkDataUrl = (dataUrl, maxWidth = 500, quality = 0.75) => {
     return new Promise((resolve) => {
-      if (!dataUrl || !dataUrl.startsWith('data:')) {
-        resolve(dataUrl);
-        return;
-      }
       const img = new Image();
       img.onload = () => {
-        const scale = Math.min(1, maxWidth / img.width);
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(dataUrl);
-          return;
-        }
-        // Latar putih: JPEG tidak punya transparansi (kalau tidak, area transparan jadi hitam)
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
         try {
+          const scale = Math.min(1, maxWidth / img.width);
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { resolve(dataUrl); return; }
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
           resolve(canvas.toDataURL('image/jpeg', quality));
         } catch {
           resolve(dataUrl);
@@ -203,23 +194,34 @@ Format output yang WAJIB dipenuhi:
     });
   };
 
-  // Mengembalikan data URL gambar, atau throw jika gagal (agar bisa dihitung & dicoba ulang)
-  const fetchImage = async (promptText) => {
-    const response = await fetch('/api/image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: promptText })
-    });
+  // Generate gambar dari prompt via proxy /api/image (Pollinations.ai — GRATIS, tanpa API key).
+  // Server mengembalikan gambar sebagai data URL (bebas CORS) → dikecilkan → tertanam di preview & Word.
+  // Throw bila gagal/timeout agar bisa dihitung & dicoba ulang.
+  const generateImage = async (promptText, maxWidth = 500, quality = 0.75) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 58000);
+    let response;
+    try {
+      response = await fetch('/api/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptText }),
+        signal: controller.signal,
+      });
+    } catch (e) {
+      throw new Error('Timeout/koneksi: sumber gambar terlalu lama merespons.');
+    } finally {
+      clearTimeout(timer);
+    }
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const detail = result?.error?.message || result?.error || `HTTP ${response.status}`;
-      throw new Error(detail);
+      throw new Error(result?.error || `HTTP ${response.status}`);
     }
-    const b64 = result?.predictions?.[0]?.bytesBase64Encoded;
-    if (!b64) {
-      throw new Error('Respons gambar kosong (model Imagen mungkin tidak tersedia untuk API key ini).');
+    const dataUrl = result?.dataUrl;
+    if (!dataUrl) {
+      throw new Error('Sumber gambar tidak mengembalikan gambar.');
     }
-    return `data:image/png;base64,${b64}`;
+    return await shrinkDataUrl(dataUrl, maxWidth, quality);
   };
 
   // Proses semua <img data-prompt> di sebuah HTML. Yang berhasil: data-prompt dihapus.
@@ -238,9 +240,8 @@ Format output yang WAJIB dipenuhi:
       if (!prompt) continue;
       setLoadingStatus(`Menghasilkan Gambar Ilustrasi (${i + 1}/${images.length})...`);
       try {
-        const base64Url = await fetchImage(prompt);
-        const compressed = await compressImage(base64Url, 500, 0.72);
-        img.src = compressed;
+        const dataUrl = await generateImage(prompt, 500, 0.75);
+        img.src = dataUrl;
         img.setAttribute('style', IMG_STYLE);
         img.removeAttribute('data-prompt'); // sukses → tidak akan dicoba ulang
       } catch (err) {
@@ -631,13 +632,8 @@ Format output yang WAJIB dipenuhi:
                 <div className="mb-3 p-3 bg-amber-50 text-amber-800 text-sm rounded-xl border border-amber-200">
                   ⚠️ {imageFailures} gambar gagal dibuat. Soal tetap aman — klik <b>Muat Ulang Gambar</b> untuk mencoba lagi.
                   {imageError && (
-                    <div className="mt-2 text-xs text-amber-900 bg-amber-100 rounded-lg p-2 font-mono break-words">
-                      Pesan dari Google: {imageError}
-                    </div>
-                  )}
-                  {/billing|paid|quota|permission|403/i.test(imageError) && (
-                    <div className="mt-2 text-xs">
-                      💡 Ini menandakan <b>API key Anda belum bisa mengakses Imagen</b> (model gambar butuh akun berbayar/billing aktif). Soal teks tetap gratis. Pilihan: aktifkan billing, atau matikan fitur gambar dan andalkan stimulus tabel/grafik.
+                    <div className="mt-2 text-xs text-amber-900 bg-amber-100 rounded-lg p-2 break-words">
+                      Detail: {imageError}
                     </div>
                   )}
                 </div>
