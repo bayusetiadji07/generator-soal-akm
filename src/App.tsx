@@ -92,7 +92,11 @@ Ketentuan Penyusunan Soal:
 - Integrasikan aspek literasi (menemukan, memahami, menginterpretasi, mengevaluasi informasi).
 - Integrasikan aspek numerasi (membaca tabel/grafik, penalaran matematis, probabilitas, dll). Untuk mapel Non-Matematika, sisipkan unsur numerasi lewat tabel/data/persentase.
 - ORISINAL: Jangan menyalin dari buku. Gunakan nama/tokoh/tempat yang bervariasi.
-- GAMBAR STIMULUS: Jika stimulus soal sangat membutuhkan atau akan lebih baik jika ada gambar visual (seperti percobaan, grafik, pemandangan, anatomi), Anda WAJIB menyisipkan tag gambar persis dengan format ini: <img class="generated-image" data-prompt="[TULIS PROMPT GAMBAR DALAM BAHASA INGGRIS YANG SANGAT DETAIL DISINI]" src="https://via.placeholder.com/400x200?text=Sedang+Membuat+Gambar..." alt="Ilustrasi Soal" style="max-width: 100%; border-radius: 8px; margin: 10px 0;"/>
+- VARIASI STIMULUS: Setiap soal WAJIB memiliki stimulus yang sesuai konteks, dan variasikan bentuknya antar soal. Pilih bentuk paling tepat: teks/wacana, studi kasus nyata, tabel data, grafik/diagram, persentase atau data statistik, infografis, atau gambar/ilustrasi deskriptif. Patuhi format teknis berikut agar tampil benar:
+  - TABEL, DATA STATISTIK & PERSENTASE: gunakan <table border="1" cellpadding="5"> berisi data yang realistis dan konsisten.
+  - GRAFIK/DIAGRAM (batang, garis, lingkaran/pie): DILARANG dibuat sebagai gambar/foto. WAJIB dibuat sebagai kode <svg> inline yang valid dan akurat sesuai data — lengkap dengan sumbu, label, dan nilai yang terbaca jelas, lebar maksimal 480px. Bila relevan, sertakan juga tabel datanya.
+  - INFOGRAFIS: kombinasikan tabel dan/atau <svg> sederhana dengan poin-poin teks ringkas yang tertata rapi.
+  - GAMBAR/ILUSTRASI DESKRIPTIF (pemandangan, anatomi, percobaan, objek, fenomena alam): gunakan tag Imagen persis format ini: <img class="generated-image" data-prompt="[TULIS PROMPT GAMBAR DALAM BAHASA INGGRIS YANG SANGAT DETAIL DISINI]" src="https://via.placeholder.com/400x200?text=Sedang+Membuat+Gambar..." alt="Ilustrasi Soal" style="max-width: 100%; border-radius: 8px; margin: 10px 0;"/>. Pakai tag ini HANYA untuk ilustrasi gambar nyata, JANGAN untuk grafik/diagram data.
 
 BERIKAN OUTPUT DALAM FORMAT HTML MURNI (tanpa tag <html>, <head>, atau <body>, langsung gunakan tag heading seperti <h2>, <h3>, <p>, <table>, <ul>, <ol>, <b>, dll). Pastikan styling tabel rapi menggunakan atribut HTML border="1" cellpadding="5". Jangan gunakan markdown (\`\`\`).
 
@@ -296,6 +300,8 @@ Format output yang WAJIB dipenuhi:
           th, td { padding: 8px; text-align: left; }
           th { background-color: #f2f2f2; }
           p { line-height: 1.5; }
+          img { max-width: 400px; height: auto; }
+          svg { max-width: 480px; height: auto; }
         </style>
       </head>
       <body>
@@ -573,6 +579,7 @@ Format output yang WAJIB dipenuhi:
                 .document-preview th { background-color: #f3f4f6; font-weight: 600; }
                 .document-preview strong { font-weight: 600; }
                 .document-preview img { max-width: 400px; width: 100%; height: auto; display: block; border-radius: 8px; margin: 10px 0; }
+                .document-preview svg { max-width: 100%; height: auto; display: block; margin: 12px 0; }
               `}} />
 
             </div>
