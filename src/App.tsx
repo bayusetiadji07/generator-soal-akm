@@ -103,6 +103,7 @@ Ketentuan Penyusunan Soal:
 - Memiliki stimulus yang menarik (konteks kehidupan nyata, fenomena, data sederhana).
 - Mengembangkan Profil Pelajar Pancasila.
 - Gunakan bahasa Indonesia yang baik, benar, dan tidak ambigu.
+- PENULISAN MATEMATIKA (WAJIB): DILARANG KERAS memakai LaTeX atau Markdown untuk rumus (jangan ada \\frac, \\times, \\sqrt, \\pi, tanda $...$, \\( \\), \\[ \\], atau ^ dan _ mentah). Tulis SEMUA matematika sebagai HTML biasa yang langsung terbaca: pangkat pakai <sup> (mis. x<sup>2</sup>, 10<sup>3</sup>), indeks/subskrip pakai <sub> (mis. H<sub>2</sub>O), pecahan tulis a/b atau gunakan simbol ½ ¾, dan pakai simbol Unicode untuk operasi: × ÷ − ± ≤ ≥ ≠ ≈ √ π ° ∑ ∞ (BUKAN kode LaTeX). Rumus harus tampil rapi tanpa kode mentah.
 - Gunakan variasi tingkat kognitif (C1-C6, dominan C3-C5).
 - Integrasikan aspek literasi (menemukan, memahami, menginterpretasi, mengevaluasi informasi).
 - Integrasikan aspek numerasi (membaca tabel/grafik, penalaran matematis, probabilitas, dll). Untuk mapel Non-Matematika, sisipkan unsur numerasi lewat tabel/data/persentase.
@@ -131,6 +132,31 @@ Format output yang WAJIB dipenuhi:
 <h2>G. Pemeriksaan Kualitas Soal</h2>
 (Daftar centang/checklist yang telah dipenuhi)
 `;
+  };
+
+  // Jaring pengaman: ubah notasi LaTeX/Markdown matematika yang lolos menjadi HTML terbaca
+  const cleanupMath = (s) => {
+    let t = s;
+    // Hapus delimiter LaTeX
+    t = t.replace(/\\\(|\\\)|\\\[|\\\]/g, '');
+    // \frac{a}{b} -> (a)/(b) ; \sqrt{a} -> √(a)
+    t = t.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)');
+    t = t.replace(/\\sqrt\s*\{([^{}]*)\}/g, '√($1)');
+    t = t.replace(/\\text\s*\{([^{}]*)\}/g, '$1');
+    // Perintah LaTeX umum -> simbol Unicode
+    const map = {
+      '\\times': '×', '\\div': '÷', '\\cdot': '·', '\\pm': '±', '\\mp': '∓',
+      '\\leq': '≤', '\\le': '≤', '\\geq': '≥', '\\ge': '≥', '\\neq': '≠', '\\ne': '≠',
+      '\\approx': '≈', '\\equiv': '≡', '\\pi': 'π', '\\theta': 'θ', '\\alpha': 'α',
+      '\\beta': 'β', '\\gamma': 'γ', '\\Delta': 'Δ', '\\sum': '∑', '\\infty': '∞',
+      '\\degree': '°', '\\circ': '°', '\\rightarrow': '→', '\\to': '→', '\\left': '', '\\right': '',
+    };
+    for (const [k, v] of Object.entries(map)) t = t.split(k).join(v);
+    // Pangkat & indeks: ^{...}, ^digit, _{...}
+    t = t.replace(/\^\{([^{}]+)\}/g, '<sup>$1</sup>');
+    t = t.replace(/\^(-?\d+)/g, '<sup>$1</sup>');
+    t = t.replace(/_\{([^{}]+)\}/g, '<sub>$1</sub>');
+    return t;
   };
 
   const fetchWithRetry = async (payload, retries = 5) => {
@@ -315,6 +341,8 @@ Format output yang WAJIB dipenuhi:
 
       // Bersihkan jika AI masih membandel memberikan tag markdown html
       textContent = textContent.replace(/```html/gi, '').replace(/```/g, '').trim();
+      // Jaring pengaman: ubah sisa notasi LaTeX/Markdown matematika jadi HTML terbaca
+      textContent = cleanupMath(textContent);
 
       setGeneratedHtml(textContent);
       setImageFailures(0);
@@ -467,7 +495,7 @@ Format output yang WAJIB dipenuhi:
         }
       }
 
-      // Wadah cetak (lebar ~A4), dirender di luar layar
+      // Wadah cetak (lebar ~A4).
       const container = document.createElement('div');
       container.innerHTML = `
         <style>
@@ -483,13 +511,18 @@ Format output yang WAJIB dipenuhi:
         </style>
         <div class="pdf-doc">${doc.body.innerHTML}</div>
       `;
-      container.style.position = 'fixed';
-      container.style.left = '-99999px';
-      container.style.top = '0';
       container.style.width = '760px';
       container.style.background = '#ffffff';
       container.style.padding = '8px';
-      document.body.appendChild(container);
+
+      // PENTING: html2canvas hanya menangkap elemen di ALUR DOKUMEN NORMAL (bukan
+      // position fixed/absolute — itu menghasilkan tinggi 0 / PDF kosong). Jadi kita
+      // bungkus dalam wadah ber-tinggi 0 + overflow hidden agar tetap di alur tapi tak terlihat.
+      const hiddenWrap = document.createElement('div');
+      hiddenWrap.style.height = '0';
+      hiddenWrap.style.overflow = 'hidden';
+      hiddenWrap.appendChild(container);
+      document.body.appendChild(hiddenWrap);
 
       const safeName = (formData.mataPelajaran || 'Soal').replace(/\s+/g, '_');
       const opt = {
@@ -501,9 +534,12 @@ Format output yang WAJIB dipenuhi:
         pagebreak: { mode: ['css', 'legacy', 'avoid-all'] },
       };
 
-      const html2pdf = (await import('html2pdf.js')).default;
-      await html2pdf().set(opt).from(container).save();
-      document.body.removeChild(container);
+      try {
+        const html2pdf = (await import('html2pdf.js')).default;
+        await html2pdf().set(opt).from(container).save();
+      } finally {
+        document.body.removeChild(hiddenWrap);
+      }
     } catch (err) {
       console.error('Gagal membuat PDF:', err);
       setError('Gagal membuat PDF. Coba lagi atau gunakan Download Word.');
