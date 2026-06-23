@@ -127,7 +127,19 @@ Format output yang WAJIB dipenuhi:
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          // Ambil pesan error asli dari server/Gemini agar mudah didiagnosa
+          let detail = `HTTP ${response.status}`;
+          try {
+            const errBody = await response.json();
+            detail = errBody?.error?.message || errBody?.error || detail;
+          } catch { /* body bukan JSON */ }
+
+          // Error konfigurasi (key salah/belum diatur, model tidak ada) tidak perlu diulang
+          if (response.status === 400 || response.status === 401 ||
+              response.status === 403 || response.status === 404 || response.status === 500) {
+            throw new Error(detail);
+          }
+          throw new Error(detail);
         }
         return await response.json();
       } catch (err) {
@@ -214,7 +226,8 @@ Format output yang WAJIB dipenuhi:
       }
     } catch (err) {
       console.error(err);
-      setError('Terjadi kesalahan saat membuat soal. Silakan coba beberapa saat lagi.');
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`Gagal membuat soal: ${msg}`);
     } finally {
       setIsGenerating(false);
       setLoadingStatus('');

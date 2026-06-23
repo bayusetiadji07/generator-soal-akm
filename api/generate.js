@@ -1,7 +1,7 @@
 // Vercel Serverless Function — proxy ke Gemini (teks).
 // API key disimpan di server (process.env.GEMINI_API_KEY), tidak pernah terekspos ke browser.
 
-const MODEL = 'gemini-2.5-flash-preview-09-2025'
+const MODEL = 'gemini-2.5-flash'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
