@@ -26,7 +26,17 @@ export default function App() {
   const [loadingStatus, setLoadingStatus] = useState('');
   const [generatedHtml, setGeneratedHtml] = useState('');
   const [error, setError] = useState('');
+  const [isReloadingImages, setIsReloadingImages] = useState(false);
+  const [imageFailures, setImageFailures] = useState(0);
   const resultRef = useRef(null);
+
+  // Placeholder bawaan (SVG, tanpa internet luar) — dipakai saat gambar gagal/dimuat
+  const placeholderSvg = (text) => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="180"><rect width="100%" height="100%" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1"/><text x="50%" y="50%" font-family="Arial, sans-serif" font-size="14" fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">${text}</text></svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  };
+
+  const IMG_STYLE = 'max-width: 400px; width: 100%; height: auto; border-radius: 8px; margin: 10px 0; display: block;';
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -189,19 +199,68 @@ Format output yang WAJIB dipenuhi:
     });
   };
 
+  // Mengembalikan data URL gambar, atau throw jika gagal (agar bisa dihitung & dicoba ulang)
   const fetchImage = async (promptText) => {
+    const response = await fetch('/api/image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: promptText })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = result?.error?.message || result?.error || `HTTP ${response.status}`;
+      throw new Error(detail);
+    }
+    const b64 = result?.predictions?.[0]?.bytesBase64Encoded;
+    if (!b64) {
+      throw new Error('Respons gambar kosong (model Imagen mungkin tidak tersedia untuk API key ini).');
+    }
+    return `data:image/png;base64,${b64}`;
+  };
+
+  // Proses semua <img data-prompt> di sebuah HTML. Yang berhasil: data-prompt dihapus.
+  // Yang gagal: data-prompt DIPERTAHANKAN supaya bisa dicoba ulang lewat tombol "Muat Ulang Gambar".
+  const processImages = async (html) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const images = doc.querySelectorAll('img[data-prompt]');
+    if (images.length === 0) return { html, failed: 0 };
+
+    let failed = 0;
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      const prompt = img.getAttribute('data-prompt');
+      if (!prompt) continue;
+      setLoadingStatus(`Menghasilkan Gambar Ilustrasi (${i + 1}/${images.length})...`);
+      try {
+        const base64Url = await fetchImage(prompt);
+        const compressed = await compressImage(base64Url, 500, 0.72);
+        img.src = compressed;
+        img.setAttribute('style', IMG_STYLE);
+        img.removeAttribute('data-prompt'); // sukses → tidak akan dicoba ulang
+      } catch (err) {
+        failed++;
+        console.error('Gagal menghasilkan gambar:', err);
+        img.src = placeholderSvg('Gambar gagal — klik "Muat Ulang Gambar"');
+        img.setAttribute('style', IMG_STYLE);
+        // data-prompt sengaja DIBIARKAN agar bisa dicoba ulang
+      }
+    }
+    return { html: doc.body.innerHTML, failed };
+  };
+
+  // Coba ulang HANYA gambar yang gagal, tanpa mengubah soal yang sudah jadi
+  const reloadFailedImages = async () => {
+    if (!generatedHtml || isGenerating || isReloadingImages) return;
+    setIsReloadingImages(true);
+    setLoadingStatus('Memuat ulang gambar yang gagal...');
     try {
-      const response = await fetch('/api/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptText })
-      });
-      if (!response.ok) throw new Error('Image generation failed');
-      const result = await response.json();
-      return `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
-    } catch (error) {
-      console.error("Gagal menghasilkan gambar:", error);
-      return "https://via.placeholder.com/400x200?text=Gambar+Gagal+Dimuat";
+      const { html, failed } = await processImages(generatedHtml);
+      setGeneratedHtml(html);
+      setImageFailures(failed);
+    } finally {
+      setIsReloadingImages(false);
+      setLoadingStatus('');
     }
   };
 
@@ -249,28 +308,12 @@ Format output yang WAJIB dipenuhi:
       textContent = textContent.replace(/```html/gi, '').replace(/```/g, '').trim();
 
       setGeneratedHtml(textContent);
+      setImageFailures(0);
 
-      // Cek apakah ada gambar yang perlu digenerate
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(textContent, 'text/html');
-      const images = doc.querySelectorAll('img[data-prompt]');
-
-      if (images.length > 0) {
-        setLoadingStatus('Menghasilkan Gambar Ilustrasi...');
-        for (let i = 0; i < images.length; i++) {
-          const img = images[i];
-          const prompt = img.getAttribute('data-prompt');
-          if (prompt) {
-            const base64Url = await fetchImage(prompt);
-            const compressed = await compressImage(base64Url, 500, 0.72);
-            img.src = compressed;
-            img.removeAttribute('data-prompt');
-            // Batasi ukuran tampil agar tidak kebesaran
-            img.setAttribute('style', 'max-width: 400px; width: 100%; height: auto; border-radius: 8px; margin: 10px 0; display: block;');
-          }
-        }
-        setGeneratedHtml(doc.body.innerHTML);
-      }
+      // Generate + kompres gambar; yang gagal bisa dicoba ulang nanti
+      const { html, failed } = await processImages(textContent);
+      setGeneratedHtml(html);
+      setImageFailures(failed);
     } catch (err) {
       console.error(err);
       const msg = err instanceof Error ? err.message : String(err);
@@ -522,23 +565,52 @@ Format output yang WAJIB dipenuhi:
               <div className="flex justify-between items-center mb-4 border-b pb-2">
                 <h2 className="text-lg font-semibold text-gray-900">Preview Perangkat Soal</h2>
 
-                <button
-                  onClick={exportToWord}
-                  disabled={!generatedHtml || isGenerating}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition ${
-                    !generatedHtml || isGenerating
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-green-600 hover:bg-green-700 text-white shadow-sm'
-                  }`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" x2="12" y1="15" y2="3"/>
-                  </svg>
-                  Download .docx
-                </button>
+                <div className="flex items-center gap-2">
+                  {imageFailures > 0 && (
+                    <button
+                      onClick={reloadFailedImages}
+                      disabled={isGenerating || isReloadingImages}
+                      title="Coba buat ulang gambar yang gagal, tanpa mengubah soal"
+                      className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition ${
+                        isGenerating || isReloadingImages
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm'
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isReloadingImages ? 'animate-spin' : ''}>
+                        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                        <path d="M21 3v5h-5"/>
+                        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                        <path d="M8 16H3v5"/>
+                      </svg>
+                      {isReloadingImages ? 'Memuat...' : `Muat Ulang Gambar (${imageFailures})`}
+                    </button>
+                  )}
+
+                  <button
+                    onClick={exportToWord}
+                    disabled={!generatedHtml || isGenerating}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition ${
+                      !generatedHtml || isGenerating
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-green-600 hover:bg-green-700 text-white shadow-sm'
+                    }`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" x2="12" y1="15" y2="3"/>
+                    </svg>
+                    Download .docx
+                  </button>
+                </div>
               </div>
+
+              {imageFailures > 0 && (
+                <div className="mb-3 p-3 bg-amber-50 text-amber-800 text-sm rounded-xl border border-amber-200">
+                  ⚠️ {imageFailures} gambar gagal dibuat. Soal tetap aman — klik <b>Muat Ulang Gambar</b> untuk mencoba lagi gambar yang gagal saja.
+                </div>
+              )}
 
               <div className="flex-1 bg-gray-50 rounded-xl border border-gray-200 p-4 md:p-8 overflow-y-auto" style={{ minHeight: '500px', maxHeight: '800px' }}>
                 {isGenerating ? (
