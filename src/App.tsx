@@ -30,6 +30,7 @@ export default function App() {
   const [isReloadingImages, setIsReloadingImages] = useState(false);
   const [imageFailures, setImageFailures] = useState(0);
   const [imageError, setImageError] = useState('');
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const resultRef = useRef(null);
 
   // Placeholder bawaan (SVG, tanpa internet luar) — dipakai saat gambar gagal/dimuat
@@ -447,6 +448,70 @@ Format output yang WAJIB dipenuhi:
     URL.revokeObjectURL(url);
   };
 
+  const exportToPdf = async () => {
+    if (!generatedHtml || isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      const doc = new DOMParser().parseFromString(generatedHtml, 'text/html');
+
+      // Grafik SVG → PNG agar pasti tampil di PDF
+      const svgs = Array.from(doc.querySelectorAll('svg'));
+      for (const svg of svgs) {
+        const res = await svgToPng(svg);
+        if (res && res.dataUrl) {
+          const im = doc.createElement('img');
+          im.setAttribute('src', res.dataUrl);
+          im.setAttribute('width', String(res.width));
+          im.setAttribute('style', 'max-width:480px;height:auto;');
+          svg.replaceWith(im);
+        }
+      }
+
+      // Wadah cetak (lebar ~A4), dirender di luar layar
+      const container = document.createElement('div');
+      container.innerHTML = `
+        <style>
+          .pdf-doc { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #000; line-height: 1.5; }
+          .pdf-doc h2 { font-size: 14pt; font-weight: 700; margin: 16px 0 8px; }
+          .pdf-doc h3 { font-size: 12pt; font-weight: 700; margin: 12px 0 6px; }
+          .pdf-doc p { margin: 0 0 8px; }
+          .pdf-doc ul, .pdf-doc ol { margin: 0 0 10px 22px; }
+          .pdf-doc table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 11pt; }
+          .pdf-doc th, .pdf-doc td { border: 1px solid #000; padding: 6px 8px; text-align: left; vertical-align: top; }
+          .pdf-doc th { background: #f2f2f2; }
+          .pdf-doc img { max-width: 400px; height: auto; display: block; margin: 8px 0; }
+        </style>
+        <div class="pdf-doc">${doc.body.innerHTML}</div>
+      `;
+      container.style.position = 'fixed';
+      container.style.left = '-99999px';
+      container.style.top = '0';
+      container.style.width = '760px';
+      container.style.background = '#ffffff';
+      container.style.padding = '8px';
+      document.body.appendChild(container);
+
+      const safeName = (formData.mataPelajaran || 'Soal').replace(/\s+/g, '_');
+      const opt = {
+        margin: [10, 10, 12, 10],
+        filename: `Perangkat_Soal_${safeName}_Kls${formData.kelas}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy', 'avoid-all'] },
+      };
+
+      const html2pdf = (await import('html2pdf.js')).default;
+      await html2pdf().set(opt).from(container).save();
+      document.body.removeChild(container);
+    } catch (err) {
+      console.error('Gagal membuat PDF:', err);
+      setError('Gagal membuat PDF. Coba lagi atau gunakan Download Word.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -695,7 +760,31 @@ Format output yang WAJIB dipenuhi:
                       <polyline points="7 10 12 15 17 10"/>
                       <line x1="12" x2="12" y1="15" y2="3"/>
                     </svg>
-                    Download .docx
+                    Word
+                  </button>
+
+                  <button
+                    onClick={exportToPdf}
+                    disabled={!generatedHtml || isGenerating || isExportingPdf}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition ${
+                      !generatedHtml || isGenerating || isExportingPdf
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-red-600 hover:bg-red-700 text-white shadow-sm'
+                    }`}
+                  >
+                    {isExportingPdf ? (
+                      <svg className="animate-spin h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" x2="12" y1="15" y2="3"/>
+                      </svg>
+                    )}
+                    {isExportingPdf ? 'Membuat...' : 'PDF'}
                   </button>
                 </div>
               </div>
