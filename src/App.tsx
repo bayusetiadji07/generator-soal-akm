@@ -194,6 +194,10 @@ Format output yang WAJIB dipenuhi:
       }],
       systemInstruction: {
         parts: [{ text: "Anda adalah sistem pakar asesmen yang menghasilkan output HTML valid, bersih, dan terstruktur tanpa markdown text." }]
+      },
+      generationConfig: {
+        maxOutputTokens: 65536,
+        temperature: 0.9
       }
     };
 
@@ -355,12 +359,12 @@ Format output yang WAJIB dipenuhi:
                     type="number"
                     name="jumlahSoal"
                     min="1"
-                    max="20"
+                    max="50"
                     value={formData.jumlahSoal}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                   />
-                  <p className="text-xs text-gray-500 mt-1">*Disarankan max 10 untuk kualitas stimulus terbaik.</p>
+                  <p className="text-xs text-gray-500 mt-1">*Maks 50 soal. Disarankan ≤15 per generate untuk kualitas stimulus terbaik & menghindari jawaban terpotong.</p>
                 </div>
 
                 <div>
