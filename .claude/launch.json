@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "generator-soal-akm",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "C:\\Users\\Hp\\generator-soal-dev.cmd"],
+      "port": 3006
+    }
+  ]
+}
