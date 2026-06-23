@@ -29,6 +29,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [isReloadingImages, setIsReloadingImages] = useState(false);
   const [imageFailures, setImageFailures] = useState(0);
+  const [imageError, setImageError] = useState('');
   const resultRef = useRef(null);
 
   // Placeholder bawaan (SVG, tanpa internet luar) — dipakai saat gambar gagal/dimuat
@@ -227,9 +228,10 @@ Format output yang WAJIB dipenuhi:
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     const images = doc.querySelectorAll('img[data-prompt]');
-    if (images.length === 0) return { html, failed: 0 };
+    if (images.length === 0) return { html, failed: 0, errorMsg: '' };
 
     let failed = 0;
+    let errorMsg = '';
     for (let i = 0; i < images.length; i++) {
       const img = images[i];
       const prompt = img.getAttribute('data-prompt');
@@ -243,13 +245,14 @@ Format output yang WAJIB dipenuhi:
         img.removeAttribute('data-prompt'); // sukses → tidak akan dicoba ulang
       } catch (err) {
         failed++;
+        if (!errorMsg) errorMsg = err instanceof Error ? err.message : String(err);
         console.error('Gagal menghasilkan gambar:', err);
         img.src = placeholderSvg('Gambar gagal — klik "Muat Ulang Gambar"');
         img.setAttribute('style', IMG_STYLE);
         // data-prompt sengaja DIBIARKAN agar bisa dicoba ulang
       }
     }
-    return { html: doc.body.innerHTML, failed };
+    return { html: doc.body.innerHTML, failed, errorMsg };
   };
 
   // Coba ulang HANYA gambar yang gagal, tanpa mengubah soal yang sudah jadi
@@ -258,9 +261,10 @@ Format output yang WAJIB dipenuhi:
     setIsReloadingImages(true);
     setLoadingStatus('Memuat ulang gambar yang gagal...');
     try {
-      const { html, failed } = await processImages(generatedHtml);
+      const { html, failed, errorMsg } = await processImages(generatedHtml);
       setGeneratedHtml(html);
       setImageFailures(failed);
+      setImageError(failed > 0 ? errorMsg : '');
     } finally {
       setIsReloadingImages(false);
       setLoadingStatus('');
@@ -314,9 +318,10 @@ Format output yang WAJIB dipenuhi:
       setImageFailures(0);
 
       // Generate + kompres gambar; yang gagal bisa dicoba ulang nanti
-      const { html, failed } = await processImages(textContent);
+      const { html, failed, errorMsg } = await processImages(textContent);
       setGeneratedHtml(html);
       setImageFailures(failed);
+      setImageError(failed > 0 ? errorMsg : '');
     } catch (err) {
       console.error(err);
       const msg = err instanceof Error ? err.message : String(err);
@@ -624,7 +629,17 @@ Format output yang WAJIB dipenuhi:
 
               {imageFailures > 0 && (
                 <div className="mb-3 p-3 bg-amber-50 text-amber-800 text-sm rounded-xl border border-amber-200">
-                  ⚠️ {imageFailures} gambar gagal dibuat. Soal tetap aman — klik <b>Muat Ulang Gambar</b> untuk mencoba lagi gambar yang gagal saja.
+                  ⚠️ {imageFailures} gambar gagal dibuat. Soal tetap aman — klik <b>Muat Ulang Gambar</b> untuk mencoba lagi.
+                  {imageError && (
+                    <div className="mt-2 text-xs text-amber-900 bg-amber-100 rounded-lg p-2 font-mono break-words">
+                      Pesan dari Google: {imageError}
+                    </div>
+                  )}
+                  {/billing|paid|quota|permission|403/i.test(imageError) && (
+                    <div className="mt-2 text-xs">
+                      💡 Ini menandakan <b>API key Anda belum bisa mengakses Imagen</b> (model gambar butuh akun berbayar/billing aktif). Soal teks tetap gratis. Pilihan: aktifkan billing, atau matikan fitur gambar dan andalkan stimulus tabel/grafik.
+                    </div>
+                  )}
                 </div>
               )}
 
