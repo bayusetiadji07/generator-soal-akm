@@ -117,6 +117,13 @@ Ketentuan Penyusunan Soal:
 ${formData.sertakanGambar
   ? `  - GAMBAR/ILUSTRASI DESKRIPTIF: gunakan tag ini persis: <img class="generated-image" data-prompt="[PROMPT GAMBAR DALAM BAHASA INGGRIS]" src="https://via.placeholder.com/400x200?text=Memuat..." alt="Ilustrasi Soal" style="max-width: 100%; border-radius: 8px; margin: 10px 0;"/>. ATURAN KETAT agar gambar RELEVAN: (1) Pakai gambar HANYA bila benar-benar membantu memahami soal, maksimal untuk 2-3 soal saja, JANGAN setiap soal. (2) HANYA untuk objek/pemandangan/benda nyata yang sederhana dan umum (mis. "a glass of water", "a green leaf", "a wooden table with fruits"). (3) JANGAN minta gambar yang butuh ketepatan ilmiah/teknis (diagram berlabel, anatomi detail, peta, rumus, struktur kimia, grafik) — untuk itu pakai SVG/tabel/teks. (4) data-prompt harus deskriptif, konkret, fotografis, dan TANPA teks/tulisan/angka di dalam gambar. (5) Pastikan isi gambar selaras dengan stimulus soal.`
   : `  - GAMBAR FOTO: JANGAN gunakan tag <img> atau gambar foto sama sekali. Sebagai gantinya sajikan stimulus visual lewat tabel, grafik <svg>, atau deskripsi teks yang jelas.`}
+- FORMAT TIAP BENTUK SOAL (WAJIB dipatuhi agar tampilan jawaban benar):
+  - Pilihan Ganda (PG): tepat SATU jawaban benar. Tulis opsi sebagai <ol type="A"> dengan tiap opsi di <li> (A, B, C, D).
+  - Pilihan Ganda Kompleks (PGK): BISA LEBIH DARI SATU jawaban benar. WAJIB awali SETIAP opsi dengan kotak centang "☐ " (karakter U+2610 lalu spasi) agar siswa bisa menandai banyak jawaban. Susun sebagai daftar tanpa nomor, contoh: <ul style="list-style:none;padding-left:0"><li>☐ pernyataan pertama</li><li>☐ pernyataan kedua</li><li>☐ pernyataan ketiga</li><li>☐ pernyataan keempat</li></ul>. Beri petunjuk singkat "(Pilih semua jawaban yang benar)". JANGAN gunakan A/B/C/D untuk PGK.
+  - Benar-Salah (BS): sajikan sebagai <table border="1" cellpadding="5"> dengan kolom "Pernyataan", "Benar (☐)", dan "Salah (☐)"; isi sel Benar/Salah dengan "☐".
+  - Menjodohkan: gunakan <table border="1" cellpadding="5"> dua kolom (kiri pernyataan bernomor, kanan pilihan jawaban berhuruf yang diacak).
+  - Isian Singkat: akhiri kalimat dengan garis isian "_______".
+  - Uraian: beri instruksi jelas dan sediakan ruang jawaban.
 
 BERIKAN OUTPUT DALAM FORMAT HTML MURNI (tanpa tag <html>, <head>, atau <body>, langsung gunakan tag heading seperti <h2>, <h3>, <p>, <table>, <ul>, <ol>, <b>, dll). Pastikan styling tabel rapi menggunakan atribut HTML border="1" cellpadding="5". Jangan gunakan markdown (\`\`\`).
 
