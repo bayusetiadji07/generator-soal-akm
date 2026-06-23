@@ -149,6 +149,42 @@ Format output yang WAJIB dipenuhi:
     }
   };
 
+  // Kecilkan & kompres gambar (PNG base64 dari Imagen sering sangat besar).
+  // Skala ke maxWidth lalu encode ulang ke JPEG agar ringan dan pasti tampil.
+  const compressImage = (dataUrl, maxWidth = 500, quality = 0.72) => {
+    return new Promise((resolve) => {
+      if (!dataUrl || !dataUrl.startsWith('data:')) {
+        resolve(dataUrl);
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        // Latar putih: JPEG tidak punya transparansi (kalau tidak, area transparan jadi hitam)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        try {
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  };
+
   const fetchImage = async (promptText) => {
     try {
       const response = await fetch('/api/image', {
@@ -222,8 +258,11 @@ Format output yang WAJIB dipenuhi:
           const prompt = img.getAttribute('data-prompt');
           if (prompt) {
             const base64Url = await fetchImage(prompt);
-            img.src = base64Url;
+            const compressed = await compressImage(base64Url, 500, 0.72);
+            img.src = compressed;
             img.removeAttribute('data-prompt');
+            // Batasi ukuran tampil agar tidak kebesaran
+            img.setAttribute('style', 'max-width: 400px; width: 100%; height: auto; border-radius: 8px; margin: 10px 0; display: block;');
           }
         }
         setGeneratedHtml(doc.body.innerHTML);
@@ -533,6 +572,7 @@ Format output yang WAJIB dipenuhi:
                 .document-preview th, .document-preview td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
                 .document-preview th { background-color: #f3f4f6; font-weight: 600; }
                 .document-preview strong { font-weight: 600; }
+                .document-preview img { max-width: 400px; width: 100%; height: auto; display: block; border-radius: 8px; margin: 10px 0; }
               `}} />
 
             </div>
