@@ -1,8 +1,19 @@
 import { useState, useRef } from 'react';
 
+// Pemetaan Fase Kurikulum Merdeka → jenjang & pilihan kelas
+const FASE = {
+  A: { jenjang: 'SD', kelas: ['1', '2'] },
+  B: { jenjang: 'SD', kelas: ['3', '4'] },
+  C: { jenjang: 'SD', kelas: ['5', '6'] },
+  D: { jenjang: 'SMP', kelas: ['7', '8', '9'] },
+  E: { jenjang: 'SMA/SMK', kelas: ['10'] },
+  F: { jenjang: 'SMA/SMK', kelas: ['11', '12'] },
+};
+
 export default function App() {
   const [formData, setFormData] = useState({
     mataPelajaran: '',
+    fase: 'D',
     kelas: '7',
     semester: 'Ganjil',
     materi: '',
@@ -45,6 +56,9 @@ export default function App() {
     const { name, value, type, checked } = e.target;
     if (type === 'checkbox' && name === 'sertakanGambar') {
       setFormData(prev => ({ ...prev, sertakanGambar: checked }));
+    } else if (name === 'fase') {
+      // Ganti fase → reset kelas ke kelas pertama fase tersebut
+      setFormData(prev => ({ ...prev, fase: value, kelas: FASE[value].kelas[0] }));
     } else if (type === 'checkbox') {
       setFormData(prev => ({
         ...prev,
@@ -84,12 +98,13 @@ export default function App() {
   };
 
   const generatePrompt = () => {
+    const jenjang = FASE[formData.fase].jenjang;
     return `
-Anda adalah seorang pakar asesmen pendidikan Kurikulum Merdeka, penulis soal AKM, penyusun soal OSN, serta guru berpengalaman jenjang SMP.
+Anda adalah seorang pakar asesmen pendidikan Kurikulum Merdeka, penulis soal AKM, penyusun soal OSN, serta guru berpengalaman jenjang ${jenjang}.
 Tugas Anda adalah membuat perangkat soal berkualitas tinggi yang mengembangkan kemampuan Literasi dan Numerasi sesuai karakteristik Kurikulum Merdeka berdasarkan data berikut:
 
 Mata Pelajaran: ${formData.mataPelajaran}
-Kelas: ${formData.kelas} SMP (Fase D)
+Kelas: ${formData.kelas} ${jenjang} (Fase ${formData.fase})
 Semester: ${formData.semester}
 Tujuan Pembelajaran / Materi: ${formData.materi}
 Indikator Ketercapaian Tujuan Pembelajaran (IKTP): ${formData.iktp ? formData.iktp : '(Tidak diisi guru — susun IKTP yang relevan & terukur secara otomatis dari Tujuan Pembelajaran di atas, lalu jadikan acuan soal)'}
@@ -98,7 +113,7 @@ Bentuk Soal: ${getSelectedBentukSoal()}
 
 Ketentuan Penyusunan Soal:
 - Level Kesulitan: Mudah ${formData.tingkatKesulitan.mudah}%, Sedang ${formData.tingkatKesulitan.sedang}%, Sulit ${formData.tingkatKesulitan.sulit}%
-- Mengacu pada Kurikulum Merdeka Fase D SMP.
+- Mengacu pada Kurikulum Merdeka Fase ${formData.fase} (${jenjang}), sesuaikan tingkat kesulitan, kompleksitas bahasa, dan konteks stimulus dengan usia/jenjang peserta didik fase tersebut.
 - WAJIB MENGACU PADA IKTP: Setiap soal harus mengukur Indikator Ketercapaian Tujuan Pembelajaran (IKTP) di atas. Indikator Soal pada kisi-kisi harus merupakan turunan/operasionalisasi dari IKTP, dan distribusikan soal agar seluruh IKTP terwakili.
 - Berorientasi Literasi dan Numerasi.
 - Kontekstual, HOTS, Bernalar kritis, Tidak hanya menghafal.
@@ -508,8 +523,8 @@ Format output yang WAJIB dipenuhi:
             A
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Generator Soal AKM & Kurikulum Merdeka</h1>
-            <p className="text-gray-500 text-sm">Desain perangkat soal terstandar (HOTS, Literasi, Numerasi) Fase D (SMP)</p>
+            <h1 className="text-2xl font-bold text-gray-900">Generator Soal Literasi Numerasi</h1>
+            <p className="text-gray-500 text-sm">Desain perangkat soal terstandar (HOTS, Literasi, Numerasi) — Kurikulum Merdeka, semua Fase (A–F)</p>
           </div>
         </div>
 
@@ -533,18 +548,34 @@ Format output yang WAJIB dipenuhi:
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Fase</label>
+                    <select
+                      name="fase"
+                      value={formData.fase}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="A">Fase A (SD 1-2)</option>
+                      <option value="B">Fase B (SD 3-4)</option>
+                      <option value="C">Fase C (SD 5-6)</option>
+                      <option value="D">Fase D (SMP)</option>
+                      <option value="E">Fase E (SMA 10)</option>
+                      <option value="F">Fase F (SMA 11-12)</option>
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Kelas</label>
                     <select
                       name="kelas"
                       value={formData.kelas}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                     >
-                      <option value="7">Kelas 7</option>
-                      <option value="8">Kelas 8</option>
-                      <option value="9">Kelas 9</option>
+                      {FASE[formData.fase].kelas.map((k) => (
+                        <option key={k} value={k}>Kelas {k}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -553,7 +584,7 @@ Format output yang WAJIB dipenuhi:
                       name="semester"
                       value={formData.semester}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                     >
                       <option value="Ganjil">Ganjil</option>
                       <option value="Genap">Genap</option>
