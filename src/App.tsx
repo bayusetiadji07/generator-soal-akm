@@ -6,6 +6,7 @@ export default function App() {
     kelas: '7',
     semester: 'Ganjil',
     materi: '',
+    iktp: '',
     jumlahSoal: 5,
     bentukSoal: {
       pg: true,
@@ -87,12 +88,14 @@ Mata Pelajaran: ${formData.mataPelajaran}
 Kelas: ${formData.kelas} SMP (Fase D)
 Semester: ${formData.semester}
 Tujuan Pembelajaran / Materi: ${formData.materi}
+Indikator Ketercapaian Tujuan Pembelajaran (IKTP): ${formData.iktp ? formData.iktp : '(Tidak diisi guru — susun IKTP yang relevan & terukur secara otomatis dari Tujuan Pembelajaran di atas, lalu jadikan acuan soal)'}
 Jumlah Soal: ${formData.jumlahSoal}
 Bentuk Soal: ${getSelectedBentukSoal()}
 
 Ketentuan Penyusunan Soal:
 - Level Kesulitan: Mudah ${formData.tingkatKesulitan.mudah}%, Sedang ${formData.tingkatKesulitan.sedang}%, Sulit ${formData.tingkatKesulitan.sulit}%
 - Mengacu pada Kurikulum Merdeka Fase D SMP.
+- WAJIB MENGACU PADA IKTP: Setiap soal harus mengukur Indikator Ketercapaian Tujuan Pembelajaran (IKTP) di atas. Indikator Soal pada kisi-kisi harus merupakan turunan/operasionalisasi dari IKTP, dan distribusikan soal agar seluruh IKTP terwakili.
 - Berorientasi Literasi dan Numerasi.
 - Kontekstual, HOTS, Bernalar kritis, Tidak hanya menghafal.
 - Memiliki stimulus yang menarik (konteks kehidupan nyata, fenomena, data sederhana).
@@ -114,7 +117,7 @@ Format output yang WAJIB dipenuhi:
 <h2>A. Identitas Soal</h2>
 (tampilkan identitas)
 <h2>B. Kisi-kisi Soal</h2>
-(Buat tabel kisi-kisi berisi No, Materi, Tujuan Pembelajaran, Indikator Soal, Level Kognitif, Literasi/Numerasi, Bentuk Soal, Nomor)
+(Buat tabel kisi-kisi berisi No, Materi, Tujuan Pembelajaran, IKTP, Indikator Soal, Level Kognitif, Literasi/Numerasi, Bentuk Soal, Nomor)
 <h2>C. Soal</h2>
 (Tampilkan tiap soal lengkap dengan stimulus, pertanyaan, dan pilihan/area jawaban)
 <h2>D. Kunci Jawaban</h2>
@@ -439,6 +442,19 @@ Format output yang WAJIB dipenuhi:
                     placeholder="Contoh: Peserta didik dapat menganalisis dampak pemanasan global terhadap ekosistem..."
                     className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none transition"
                   ></textarea>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Indikator Ketercapaian Tujuan Pembelajaran (IKTP)</label>
+                  <textarea
+                    name="iktp"
+                    value={formData.iktp}
+                    onChange={handleInputChange}
+                    rows={3}
+                    placeholder="Opsional. Tulis tiap indikator di baris baru, mis:&#10;1. Menjelaskan penyebab pemanasan global&#10;2. Menganalisis dampaknya terhadap ekosistem"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none transition"
+                  ></textarea>
+                  <p className="text-xs text-gray-500 mt-1">*Dikosongkan = IKTP disusun otomatis oleh AI dari Tujuan Pembelajaran.</p>
                 </div>
 
                 <div>
