@@ -333,42 +333,114 @@ Format output yang WAJIB dipenuhi:
     }
   };
 
-  const exportToWord = () => {
+  // Ubah <svg> (grafik) jadi gambar PNG data URL agar bisa tampil di Word
+  const svgToPng = (svgEl) => {
+    return new Promise((resolve) => {
+      try {
+        let w = parseFloat(svgEl.getAttribute('width')) || 0;
+        let h = parseFloat(svgEl.getAttribute('height')) || 0;
+        const vb = (svgEl.getAttribute('viewBox') || '').split(/[\s,]+/).map(parseFloat).filter((n) => !isNaN(n));
+        if ((!w || !h) && vb.length === 4) { w = w || vb[2]; h = h || vb[3]; }
+        w = w || 480; h = h || 300;
+        const clone = svgEl.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('width', String(w));
+        clone.setAttribute('height', String(h));
+        const xml = new XMLSerializer().serializeToString(clone);
+        const svgUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+        const scale = 2; // 2x untuk hasil cetak tajam
+        const image = new Image();
+        image.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(w * scale);
+            canvas.height = Math.round(h * scale);
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { resolve(null); return; }
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            resolve({ dataUrl: canvas.toDataURL('image/png'), width: Math.min(Math.round(w), 480) });
+          } catch { resolve(null); }
+        };
+        image.onerror = () => resolve(null);
+        image.src = svgUrl;
+      } catch { resolve(null); }
+    });
+  };
+
+  const exportToWord = async () => {
     if (!generatedHtml) return;
 
-    const header = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office'
-            xmlns:w='urn:schemas-microsoft-com:office:word'
-            xmlns='http://www.w3.org/TR/REC-html40'>
-      <head>
-        <meta charset='utf-8'>
-        <title>Perangkat Soal</title>
-        <style>
-          body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; }
-          h2 { font-size: 14pt; color: #333; margin-top: 20px; }
-          h3 { font-size: 12pt; }
-          table { border-collapse: collapse; width: 100%; margin-bottom: 15px; }
-          table, th, td { border: 1px solid black; }
-          th, td { padding: 8px; text-align: left; }
-          th { background-color: #f2f2f2; }
-          p { line-height: 1.5; }
-          img { max-width: 400px; height: auto; }
-          svg { max-width: 480px; height: auto; }
-        </style>
-      </head>
-      <body>
-    `;
-    const footer = "</body></html>";
-    const sourceHTML = header + generatedHtml + footer;
+    const doc = new DOMParser().parseFromString(generatedHtml, 'text/html');
 
-    const blob = new Blob(['﻿', sourceHTML], {
-      type: 'application/msword'
+    // 1) Grafik SVG → gambar PNG (Word tidak bisa render SVG inline)
+    const svgs = Array.from(doc.querySelectorAll('svg'));
+    for (const svg of svgs) {
+      const res = await svgToPng(svg);
+      if (res && res.dataUrl) {
+        const im = doc.createElement('img');
+        im.setAttribute('src', res.dataUrl);
+        im.setAttribute('width', String(res.width));
+        im.setAttribute('style', 'max-width:480px;height:auto;');
+        svg.replaceWith(im);
+      }
+    }
+
+    // 2) Kumpulkan gambar base64 jadi bagian MHTML terpisah (agar tertanam & tampil di Word)
+    const parts = [];
+    let idx = 0;
+    Array.from(doc.querySelectorAll('img')).forEach((img) => {
+      const src = img.getAttribute('src') || '';
+      const m = src.match(/^data:(image\/(png|jpeg|jpg|gif|bmp));base64,([\s\S]+)$/i);
+      if (m) {
+        idx++;
+        const sub = m[2].toLowerCase();
+        const ext = sub === 'jpeg' ? 'jpg' : sub;
+        const name = `image${String(idx).padStart(3, '0')}.${ext}`;
+        parts.push({ name, mime: m[1], b64: m[3].replace(/\s+/g, '') });
+        img.setAttribute('src', name);
+      }
     });
+
+    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Perangkat Soal</title><style>body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; } h2 { font-size: 14pt; color: #333; margin-top: 20px; } h3 { font-size: 12pt; } table { border-collapse: collapse; width: 100%; margin-bottom: 15px; } table, th, td { border: 1px solid black; } th, td { padding: 8px; text-align: left; } th { background-color: #f2f2f2; } p { line-height: 1.5; } img { max-width: 400px; height: auto; }</style></head><body>`;
+    const footer = '</body></html>';
+    const sourceHTML = header + doc.body.innerHTML + footer;
+
+    const safeName = (formData.mataPelajaran || 'Soal').replace(/\s+/g, '_');
+    const fileName = `Perangkat_Soal_${safeName}_Kls${formData.kelas}.doc`;
+
+    let blob;
+    if (parts.length === 0) {
+      // Tidak ada gambar → HTML biasa cukup
+      blob = new Blob(['﻿', sourceHTML], { type: 'application/msword' });
+    } else {
+      // Bangun MHTML (Web Archive) supaya gambar benar-benar tertanam di Word
+      const boundary = '----=_NextPart_' + Date.now().toString(36);
+      const wrap = (s) => s.replace(/(.{76})/g, '$1\r\n');
+      const utf8ToBase64 = (str) => btoa(unescape(encodeURIComponent(str)));
+
+      let mht = 'MIME-Version: 1.0\r\n';
+      mht += `Content-Type: multipart/related; boundary="${boundary}"\r\n\r\n`;
+      mht += `--${boundary}\r\n`;
+      mht += 'Content-Type: text/html; charset="utf-8"\r\n';
+      mht += 'Content-Transfer-Encoding: base64\r\n\r\n';
+      mht += wrap(utf8ToBase64(sourceHTML)) + '\r\n';
+      for (const p of parts) {
+        mht += `--${boundary}\r\n`;
+        mht += `Content-Type: ${p.mime}\r\n`;
+        mht += 'Content-Transfer-Encoding: base64\r\n';
+        mht += `Content-Location: ${p.name}\r\n\r\n`;
+        mht += wrap(p.b64) + '\r\n';
+      }
+      mht += `--${boundary}--\r\n`;
+      blob = new Blob([mht], { type: 'application/msword' });
+    }
 
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Perangkat_Soal_${formData.mataPelajaran.replace(/\s+/g, '_')}_Kls${formData.kelas}.doc`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
