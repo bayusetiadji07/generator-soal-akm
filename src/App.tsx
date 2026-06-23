@@ -8,6 +8,7 @@ export default function App() {
     materi: '',
     iktp: '',
     jumlahSoal: 5,
+    sertakanGambar: false,
     bentukSoal: {
       pg: true,
       pgk: false,
@@ -30,7 +31,6 @@ export default function App() {
   const [isReloadingImages, setIsReloadingImages] = useState(false);
   const [imageFailures, setImageFailures] = useState(0);
   const [imageError, setImageError] = useState('');
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const resultRef = useRef(null);
 
   // Placeholder bawaan (SVG, tanpa internet luar) — dipakai saat gambar gagal/dimuat
@@ -43,7 +43,9 @@ export default function App() {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (type === 'checkbox') {
+    if (type === 'checkbox' && name === 'sertakanGambar') {
+      setFormData(prev => ({ ...prev, sertakanGambar: checked }));
+    } else if (type === 'checkbox') {
       setFormData(prev => ({
         ...prev,
         bentukSoal: {
@@ -112,7 +114,9 @@ Ketentuan Penyusunan Soal:
   - TABEL, DATA STATISTIK & PERSENTASE: gunakan <table border="1" cellpadding="5"> berisi data yang realistis dan konsisten.
   - GRAFIK/DIAGRAM (batang, garis, lingkaran/pie): DILARANG dibuat sebagai gambar/foto. WAJIB dibuat sebagai kode <svg> inline yang valid dan akurat sesuai data — lengkap dengan sumbu, label, dan nilai yang terbaca jelas, lebar maksimal 480px. Bila relevan, sertakan juga tabel datanya.
   - INFOGRAFIS: kombinasikan tabel dan/atau <svg> sederhana dengan poin-poin teks ringkas yang tertata rapi.
-  - GAMBAR/ILUSTRASI DESKRIPTIF (pemandangan, anatomi, percobaan, objek, fenomena alam): gunakan tag Imagen persis format ini: <img class="generated-image" data-prompt="[TULIS PROMPT GAMBAR DALAM BAHASA INGGRIS YANG SANGAT DETAIL DISINI]" src="https://via.placeholder.com/400x200?text=Sedang+Membuat+Gambar..." alt="Ilustrasi Soal" style="max-width: 100%; border-radius: 8px; margin: 10px 0;"/>. Pakai tag ini HANYA untuk ilustrasi gambar nyata, JANGAN untuk grafik/diagram data.
+${formData.sertakanGambar
+  ? `  - GAMBAR/ILUSTRASI DESKRIPTIF: gunakan tag ini persis: <img class="generated-image" data-prompt="[PROMPT GAMBAR DALAM BAHASA INGGRIS]" src="https://via.placeholder.com/400x200?text=Memuat..." alt="Ilustrasi Soal" style="max-width: 100%; border-radius: 8px; margin: 10px 0;"/>. ATURAN KETAT agar gambar RELEVAN: (1) Pakai gambar HANYA bila benar-benar membantu memahami soal, maksimal untuk 2-3 soal saja, JANGAN setiap soal. (2) HANYA untuk objek/pemandangan/benda nyata yang sederhana dan umum (mis. "a glass of water", "a green leaf", "a wooden table with fruits"). (3) JANGAN minta gambar yang butuh ketepatan ilmiah/teknis (diagram berlabel, anatomi detail, peta, rumus, struktur kimia, grafik) — untuk itu pakai SVG/tabel/teks. (4) data-prompt harus deskriptif, konkret, fotografis, dan TANPA teks/tulisan/angka di dalam gambar. (5) Pastikan isi gambar selaras dengan stimulus soal.`
+  : `  - GAMBAR FOTO: JANGAN gunakan tag <img> atau gambar foto sama sekali. Sebagai gantinya sajikan stimulus visual lewat tabel, grafik <svg>, atau deskripsi teks yang jelas.`}
 
 BERIKAN OUTPUT DALAM FORMAT HTML MURNI (tanpa tag <html>, <head>, atau <body>, langsung gunakan tag heading seperti <h2>, <h3>, <p>, <table>, <ul>, <ol>, <b>, dll). Pastikan styling tabel rapi menggunakan atribut HTML border="1" cellpadding="5". Jangan gunakan markdown (\`\`\`).
 
@@ -344,14 +348,24 @@ Format output yang WAJIB dipenuhi:
       // Jaring pengaman: ubah sisa notasi LaTeX/Markdown matematika jadi HTML terbaca
       textContent = cleanupMath(textContent);
 
+      // Jika opsi gambar mati, buang gambar foto yang mungkin tetap disisipkan AI
+      if (!formData.sertakanGambar) {
+        const d = new DOMParser().parseFromString(textContent, 'text/html');
+        d.querySelectorAll('img').forEach((im) => im.remove());
+        textContent = d.body.innerHTML;
+      }
+
       setGeneratedHtml(textContent);
       setImageFailures(0);
+      setImageError('');
 
-      // Generate + kompres gambar; yang gagal bisa dicoba ulang nanti
-      const { html, failed, errorMsg } = await processImages(textContent);
-      setGeneratedHtml(html);
-      setImageFailures(failed);
-      setImageError(failed > 0 ? errorMsg : '');
+      // Generate gambar hanya bila opsi diaktifkan
+      if (formData.sertakanGambar) {
+        const { html, failed, errorMsg } = await processImages(textContent);
+        setGeneratedHtml(html);
+        setImageFailures(failed);
+        setImageError(failed > 0 ? errorMsg : '');
+      }
     } catch (err) {
       console.error(err);
       const msg = err instanceof Error ? err.message : String(err);
@@ -476,77 +490,6 @@ Format output yang WAJIB dipenuhi:
     URL.revokeObjectURL(url);
   };
 
-  const exportToPdf = async () => {
-    if (!generatedHtml || isExportingPdf) return;
-    setIsExportingPdf(true);
-    try {
-      const doc = new DOMParser().parseFromString(generatedHtml, 'text/html');
-
-      // Grafik SVG → PNG agar pasti tampil di PDF
-      const svgs = Array.from(doc.querySelectorAll('svg'));
-      for (const svg of svgs) {
-        const res = await svgToPng(svg);
-        if (res && res.dataUrl) {
-          const im = doc.createElement('img');
-          im.setAttribute('src', res.dataUrl);
-          im.setAttribute('width', String(res.width));
-          im.setAttribute('style', 'max-width:480px;height:auto;');
-          svg.replaceWith(im);
-        }
-      }
-
-      // Wadah cetak (lebar ~A4).
-      const container = document.createElement('div');
-      container.innerHTML = `
-        <style>
-          .pdf-doc { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #000; line-height: 1.5; }
-          .pdf-doc h2 { font-size: 14pt; font-weight: 700; margin: 16px 0 8px; }
-          .pdf-doc h3 { font-size: 12pt; font-weight: 700; margin: 12px 0 6px; }
-          .pdf-doc p { margin: 0 0 8px; }
-          .pdf-doc ul, .pdf-doc ol { margin: 0 0 10px 22px; }
-          .pdf-doc table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 11pt; }
-          .pdf-doc th, .pdf-doc td { border: 1px solid #000; padding: 6px 8px; text-align: left; vertical-align: top; }
-          .pdf-doc th { background: #f2f2f2; }
-          .pdf-doc img { max-width: 400px; height: auto; display: block; margin: 8px 0; }
-        </style>
-        <div class="pdf-doc">${doc.body.innerHTML}</div>
-      `;
-      container.style.width = '760px';
-      container.style.background = '#ffffff';
-      container.style.padding = '8px';
-
-      // PENTING: html2canvas hanya menangkap elemen di ALUR DOKUMEN NORMAL (bukan
-      // position fixed/absolute — itu menghasilkan tinggi 0 / PDF kosong). Jadi kita
-      // bungkus dalam wadah ber-tinggi 0 + overflow hidden agar tetap di alur tapi tak terlihat.
-      const hiddenWrap = document.createElement('div');
-      hiddenWrap.style.height = '0';
-      hiddenWrap.style.overflow = 'hidden';
-      hiddenWrap.appendChild(container);
-      document.body.appendChild(hiddenWrap);
-
-      const safeName = (formData.mataPelajaran || 'Soal').replace(/\s+/g, '_');
-      const opt = {
-        margin: [10, 10, 12, 10],
-        filename: `Perangkat_Soal_${safeName}_Kls${formData.kelas}.pdf`,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy', 'avoid-all'] },
-      };
-
-      try {
-        const html2pdf = (await import('html2pdf.js')).default;
-        await html2pdf().set(opt).from(container).save();
-      } finally {
-        document.body.removeChild(hiddenWrap);
-      }
-    } catch (err) {
-      console.error('Gagal membuat PDF:', err);
-      setError('Gagal membuat PDF. Coba lagi atau gunakan Download Word.');
-    } finally {
-      setIsExportingPdf(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 p-4 md:p-8 font-sans">
@@ -725,6 +668,22 @@ Format output yang WAJIB dipenuhi:
                   </div>
                 </div>
 
+                <div className="rounded-xl border border-gray-200 p-3">
+                  <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="sertakanGambar"
+                      checked={formData.sertakanGambar}
+                      onChange={handleInputChange}
+                      className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>
+                      <span className="font-medium">Sertakan gambar ilustrasi (AI)</span>
+                      <span className="block text-xs text-gray-500 mt-0.5">Default mati. Gambar AI gratis kadang kurang akurat/relevan. Tanpa gambar, stimulus tetap kaya lewat tabel, grafik, dan deskripsi.</span>
+                    </span>
+                  </label>
+                </div>
+
                 {error && (
                   <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl border border-red-200">
                     {error}
@@ -796,31 +755,7 @@ Format output yang WAJIB dipenuhi:
                       <polyline points="7 10 12 15 17 10"/>
                       <line x1="12" x2="12" y1="15" y2="3"/>
                     </svg>
-                    Word
-                  </button>
-
-                  <button
-                    onClick={exportToPdf}
-                    disabled={!generatedHtml || isGenerating || isExportingPdf}
-                    className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition ${
-                      !generatedHtml || isGenerating || isExportingPdf
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-red-600 hover:bg-red-700 text-white shadow-sm'
-                    }`}
-                  >
-                    {isExportingPdf ? (
-                      <svg className="animate-spin h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" x2="12" y1="15" y2="3"/>
-                      </svg>
-                    )}
-                    {isExportingPdf ? 'Membuat...' : 'PDF'}
+                    Download Word
                   </button>
                 </div>
               </div>
