@@ -1,5 +1,5 @@
 // Vercel Serverless Function — proxy ke Gemini (teks).
-// API key disimpan di server (process.env.GEMINI_API_KEY), tidak pernah terekspos ke browser.
+// API key DIUTAMAKAN dari input pengguna (dikirim di body), fallback ke env server.
 //
 // Tahan banting: kalau model utama sedang overload (503) atau kena limit (429),
 // otomatis mencoba model cadangan secara berurutan.
@@ -13,9 +13,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const apiKey = process.env.GEMINI_API_KEY
+  // Dukung format baru { apiKey, payload }; tetap kompatibel dengan body lama (payload langsung)
+  const body = req.body || {}
+  const userKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : ''
+  const payload = body.payload || body
+  const apiKey = userKey || process.env.GEMINI_API_KEY
   if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY belum diatur di environment variable Vercel.' })
+    return res.status(400).json({ error: 'API Key Gemini belum diisi. Masukkan API Key Anda di aplikasi (dapatkan gratis di aistudio.google.com/app/apikey).' })
   }
 
   let lastErrorBody = null
@@ -28,7 +32,7 @@ export default async function handler(req, res) {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(req.body),
+          body: JSON.stringify(payload),
         }
       )
 

@@ -18,7 +18,9 @@ export default function App() {
     semester: 'Ganjil',
     materi: '',
     iktp: '',
+    tipeTes: 'Ulangan Harian',
     jumlahSoal: 5,
+    jumlahPilihan: '4',
     sertakanGambar: false,
     bentukSoal: {
       pg: true,
@@ -42,7 +44,40 @@ export default function App() {
   const [isReloadingImages, setIsReloadingImages] = useState(false);
   const [imageFailures, setImageFailures] = useState(0);
   const [imageError, setImageError] = useState('');
+  const [apiKey, setApiKey] = useState(() => {
+    try { return localStorage.getItem('gemini_api_key') || ''; } catch { return ''; }
+  });
+  const [showKey, setShowKey] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState([]); // { id, soalNo, dataUrl }
   const resultRef = useRef(null);
+
+  const handleApiKeyChange = (e) => {
+    const v = e.target.value.trim();
+    setApiKey(v);
+    try { localStorage.setItem('gemini_api_key', v); } catch { /* abaikan */ }
+  };
+
+  // Upload gambar soal manual (stimulus untuk nomor tertentu)
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const shrunk = await shrinkDataUrl(reader.result, 1024, 0.85);
+        setUploadedImages((prev) => [
+          ...prev,
+          { id: Date.now() + '_' + Math.random().toString(36).slice(2), soalNo: String(prev.length + 1), dataUrl: shrunk },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const updateImageSoalNo = (id, soalNo) =>
+    setUploadedImages((prev) => prev.map((u) => (u.id === id ? { ...u, soalNo } : u)));
+  const removeUploadedImage = (id) =>
+    setUploadedImages((prev) => prev.filter((u) => u.id !== id));
 
   // Placeholder bawaan (SVG, tanpa internet luar) — dipakai saat gambar gagal/dimuat
   const placeholderSvg = (text) => {
@@ -106,14 +141,20 @@ Tugas Anda adalah membuat perangkat soal berkualitas tinggi yang mengembangkan k
 Mata Pelajaran: ${formData.mataPelajaran}
 Kelas: ${formData.kelas} ${jenjang} (Fase ${formData.fase})
 Semester: ${formData.semester}
+Keperluan / Jenis Tes: ${formData.tipeTes}
 Tujuan Pembelajaran / Materi: ${formData.materi}
 Indikator Ketercapaian Tujuan Pembelajaran (IKTP): ${formData.iktp ? formData.iktp : '(Tidak diisi guru — susun IKTP yang relevan & terukur secara otomatis dari Tujuan Pembelajaran di atas, lalu jadikan acuan soal)'}
 Jumlah Soal: ${formData.jumlahSoal}
+Jumlah Pilihan Jawaban (untuk Pilihan Ganda / PG Kompleks): ${formData.jumlahPilihan} opsi
 Bentuk Soal: ${getSelectedBentukSoal()}
+${uploadedImages.length > 0 ? `
+GAMBAR STIMULUS DARI GURU (WAJIB DIPAKAI): Guru melampirkan ${uploadedImages.length} gambar (terlampir di pesan ini). Tiap gambar adalah STIMULUS WAJIB untuk soal nomor tertentu — perhatikan keterangan "[Gambar stimulus WAJIB untuk Soal No. X]" tepat sebelum tiap gambar. Untuk setiap gambar: AMATI isinya dengan teliti, lalu SUSUN soal nomor X benar-benar BERDASARKAN gambar tersebut (pertanyaannya harus bergantung pada isi gambar, bukan generik). Pada bagian "C. Soal", di soal nomor X, sisipkan penanda gambar PERSIS ini di posisi stimulus: <img class="user-stimulus" data-userimg="X" alt="Gambar Stimulus Soal X"/> (JANGAN beri atribut src — akan diisi otomatis oleh sistem). Soal yang memakai gambar guru: nomor ${uploadedImages.map((u) => u.soalNo).join(', ')}. Pastikan total ${formData.jumlahSoal} soal mencakup nomor-nomor itu.
+` : ''}
 
 Ketentuan Penyusunan Soal:
 - Level Kesulitan: Mudah ${formData.tingkatKesulitan.mudah}%, Sedang ${formData.tingkatKesulitan.sedang}%, Sulit ${formData.tingkatKesulitan.sulit}%
 - Mengacu pada Kurikulum Merdeka Fase ${formData.fase} (${jenjang}), sesuaikan tingkat kesulitan, kompleksitas bahasa, dan konteks stimulus dengan usia/jenjang peserta didik fase tersebut.
+- SESUAIKAN DENGAN JENIS TES "${formData.tipeTes}": sesuaikan cakupan materi, bobot, kedalaman, dan gaya soal dengan karakteristik tes tersebut (mis. Ulangan Harian = fokus 1 materi; PTS/PAS/Sumatif = cakupan luas & berjenjang; AKM/ANBK = berbasis konteks literasi-numerasi; Olimpiade/OSN = HOTS & menantang; Latihan/Kuis = ringkas).
 - WAJIB MENGACU PADA IKTP: Setiap soal harus mengukur Indikator Ketercapaian Tujuan Pembelajaran (IKTP) di atas. Indikator Soal pada kisi-kisi harus merupakan turunan/operasionalisasi dari IKTP, dan distribusikan soal agar seluruh IKTP terwakili.
 - Berorientasi Literasi dan Numerasi.
 - Kontekstual, HOTS, Bernalar kritis, Tidak hanya menghafal.
@@ -133,8 +174,8 @@ ${formData.sertakanGambar
   ? `  - GAMBAR/ILUSTRASI DESKRIPTIF: gunakan tag ini persis: <img class="generated-image" data-prompt="[PROMPT GAMBAR DALAM BAHASA INGGRIS]" src="https://via.placeholder.com/400x200?text=Memuat..." alt="Ilustrasi Soal" style="max-width: 100%; border-radius: 8px; margin: 10px 0;"/>. ATURAN KETAT agar gambar RELEVAN: (1) Pakai gambar HANYA bila benar-benar membantu memahami soal, maksimal untuk 2-3 soal saja, JANGAN setiap soal. (2) HANYA untuk objek/pemandangan/benda nyata yang sederhana dan umum (mis. "a glass of water", "a green leaf", "a wooden table with fruits"). (3) JANGAN minta gambar yang butuh ketepatan ilmiah/teknis (diagram berlabel, anatomi detail, peta, rumus, struktur kimia, grafik) — untuk itu pakai SVG/tabel/teks. (4) data-prompt harus deskriptif, konkret, fotografis, dan TANPA teks/tulisan/angka di dalam gambar. (5) Pastikan isi gambar selaras dengan stimulus soal.`
   : `  - GAMBAR FOTO: JANGAN gunakan tag <img> atau gambar foto sama sekali. Sebagai gantinya sajikan stimulus visual lewat tabel, grafik <svg>, atau deskripsi teks yang jelas.`}
 - FORMAT TIAP BENTUK SOAL (WAJIB dipatuhi agar tampilan jawaban benar):
-  - Pilihan Ganda (PG): tepat SATU jawaban benar. Tulis opsi sebagai <ol type="A"> dengan tiap opsi di <li> (A, B, C, D).
-  - Pilihan Ganda Kompleks (PGK): BISA LEBIH DARI SATU jawaban benar. WAJIB awali SETIAP opsi dengan kotak centang "☐ " (karakter U+2610 lalu spasi) agar siswa bisa menandai banyak jawaban. Susun sebagai daftar tanpa nomor, contoh: <ul style="list-style:none;padding-left:0"><li>☐ pernyataan pertama</li><li>☐ pernyataan kedua</li><li>☐ pernyataan ketiga</li><li>☐ pernyataan keempat</li></ul>. Beri petunjuk singkat "(Pilih semua jawaban yang benar)". JANGAN gunakan A/B/C/D untuk PGK.
+  - Pilihan Ganda (PG): tepat SATU jawaban benar. Sediakan TEPAT ${formData.jumlahPilihan} opsi jawaban berlabel huruf. Tulis opsi sebagai <ol type="A"> dengan tiap opsi di <li> (jadi A sampai huruf ke-${formData.jumlahPilihan}). Pastikan pengecoh (distraktor) logis.
+  - Pilihan Ganda Kompleks (PGK): BISA LEBIH DARI SATU jawaban benar. Sediakan TEPAT ${formData.jumlahPilihan} opsi/pernyataan. WAJIB awali SETIAP opsi dengan kotak centang "☐ " (karakter U+2610 lalu spasi) agar siswa bisa menandai banyak jawaban. Susun sebagai daftar tanpa nomor, contoh: <ul style="list-style:none;padding-left:0"><li>☐ pernyataan pertama</li><li>☐ pernyataan kedua</li>...</ul>. Beri petunjuk singkat "(Pilih semua jawaban yang benar)". JANGAN gunakan A/B/C/D untuk PGK.
   - Benar-Salah (BS): sajikan sebagai <table border="1" cellpadding="5"> dengan kolom "Pernyataan", "Benar (☐)", dan "Salah (☐)"; isi sel Benar/Salah dengan "☐".
   - Menjodohkan: gunakan <table border="1" cellpadding="5"> dua kolom (kiri pernyataan bernomor, kanan pilihan jawaban berhuruf yang diacak).
   - Isian Singkat: akhiri kalimat dengan garis isian "_______".
@@ -194,7 +235,7 @@ Format output yang WAJIB dipenuhi:
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ apiKey, payload })
         });
 
         if (!response.ok) {
@@ -325,8 +366,33 @@ Format output yang WAJIB dipenuhi:
     }
   };
 
+  // Ganti penanda <img data-userimg="N"> dengan gambar yang diupload guru untuk soal N
+  const applyUserImages = async (html) => {
+    if (uploadedImages.length === 0) return html;
+    const d = new DOMParser().parseFromString(html, 'text/html');
+    const markers = Array.from(d.querySelectorAll('img[data-userimg]'));
+    for (const img of markers) {
+      const no = img.getAttribute('data-userimg');
+      const found = uploadedImages.find((u) => String(u.soalNo) === String(no));
+      if (found) {
+        const small = await shrinkDataUrl(found.dataUrl, 500, 0.8);
+        img.setAttribute('src', small);
+        img.setAttribute('style', IMG_STYLE);
+        img.setAttribute('class', 'user-stimulus');
+        img.removeAttribute('data-userimg');
+      } else {
+        img.remove();
+      }
+    }
+    return d.body.innerHTML;
+  };
+
   const handleGenerate = async (e) => {
     e.preventDefault();
+    if (!apiKey) {
+      setError('API Key Gemini belum diisi. Masukkan API Key Anda di kolom paling atas (dapatkan gratis di aistudio.google.com/app/apikey).');
+      return;
+    }
     if (!formData.mataPelajaran || !formData.materi) {
       setError('Mohon isi Mata Pelajaran dan Materi terlebih dahulu.');
       return;
@@ -348,10 +414,18 @@ Format output yang WAJIB dipenuhi:
     setLoadingStatus('Menyusun Asesmen...');
     setGeneratedHtml('');
 
+    // Bangun parts multimodal: teks prompt + gambar yang diupload guru (agar AI "melihat" gambar)
+    const parts = [{ text: generatePrompt() }];
+    for (const u of uploadedImages) {
+      const m = /^data:(.+?);base64,(.*)$/.exec(u.dataUrl);
+      if (m) {
+        parts.push({ text: `\n[Gambar stimulus WAJIB untuk Soal No. ${u.soalNo}]:` });
+        parts.push({ inlineData: { mimeType: m[1], data: m[2] } });
+      }
+    }
+
     const payload = {
-      contents: [{
-        parts: [{ text: generatePrompt() }]
-      }],
+      contents: [{ parts }],
       systemInstruction: {
         parts: [{ text: "Anda adalah sistem pakar asesmen yang menghasilkan output HTML valid, bersih, dan terstruktur tanpa markdown text." }]
       },
@@ -370,10 +444,13 @@ Format output yang WAJIB dipenuhi:
       // Jaring pengaman: ubah sisa notasi LaTeX/Markdown matematika jadi HTML terbaca
       textContent = cleanupMath(textContent);
 
-      // Jika opsi gambar mati, buang gambar foto yang mungkin tetap disisipkan AI
+      // Sisipkan gambar upload guru ke penandanya (selalu, tak terpengaruh opsi gambar AI)
+      textContent = await applyUserImages(textContent);
+
+      // Jika opsi gambar AI mati, buang HANYA gambar foto AI (jangan sentuh gambar upload guru)
       if (!formData.sertakanGambar) {
         const d = new DOMParser().parseFromString(textContent, 'text/html');
-        d.querySelectorAll('img').forEach((im) => im.remove());
+        d.querySelectorAll('img.generated-image, img[data-prompt]').forEach((im) => im.remove());
         textContent = d.body.innerHTML;
       }
 
@@ -536,6 +613,31 @@ Format output yang WAJIB dipenuhi:
               <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">Konfigurasi Soal</h2>
 
               <form onSubmit={handleGenerate} className="space-y-4">
+                <div className={`rounded-xl border p-3 ${apiKey ? 'border-gray-200 bg-gray-50' : 'border-amber-300 bg-amber-50'}`}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">API Key Gemini {!apiKey && <span className="text-amber-600">(wajib diisi)</span>}</label>
+                  <div className="flex gap-2">
+                    <input
+                      type={showKey ? 'text' : 'password'}
+                      value={apiKey}
+                      onChange={handleApiKeyChange}
+                      placeholder="Tempel API Key Gemini Anda di sini"
+                      autoComplete="off"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKey((s) => !s)}
+                      className="px-3 py-2 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-100"
+                    >
+                      {showKey ? 'Sembunyi' : 'Lihat'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Tersimpan di browser Anda (tidak dibagikan). Dapatkan gratis di{' '}
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-600 underline">aistudio.google.com/app/apikey</a>.
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Mata Pelajaran</label>
                   <input
@@ -546,6 +648,29 @@ Format output yang WAJIB dipenuhi:
                     placeholder="Contoh: IPA, Bahasa Indonesia, Matematika"
                     className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Keperluan / Jenis Tes</label>
+                  <select
+                    name="tipeTes"
+                    value={formData.tipeTes}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option>Ulangan Harian</option>
+                    <option>Penilaian Tengah Semester (PTS/STS)</option>
+                    <option>Penilaian Akhir Semester (PAS/SAS)</option>
+                    <option>Asesmen Sumatif</option>
+                    <option>Asesmen Formatif</option>
+                    <option>Latihan Soal</option>
+                    <option>Kuis</option>
+                    <option>AKM / ANBK</option>
+                    <option>Ujian Sekolah</option>
+                    <option>Remedial</option>
+                    <option>Pengayaan</option>
+                    <option>Olimpiade / OSN</option>
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
@@ -617,19 +742,35 @@ Format output yang WAJIB dipenuhi:
                   <p className="text-xs text-gray-500 mt-1">*Dikosongkan = IKTP disusun otomatis oleh AI dari Tujuan Pembelajaran.</p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah Soal</label>
-                  <input
-                    type="number"
-                    name="jumlahSoal"
-                    min="1"
-                    max="50"
-                    value={formData.jumlahSoal}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">*Maks 50 soal. Disarankan ≤15 per generate untuk kualitas stimulus terbaik & menghindari jawaban terpotong.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah Soal</label>
+                    <input
+                      type="number"
+                      name="jumlahSoal"
+                      min="1"
+                      max="50"
+                      value={formData.jumlahSoal}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah Pilihan Jawaban</label>
+                    <select
+                      name="jumlahPilihan"
+                      value={formData.jumlahPilihan}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="2">2 opsi (A–B)</option>
+                      <option value="3">3 opsi (A–C)</option>
+                      <option value="4">4 opsi (A–D)</option>
+                      <option value="5">5 opsi (A–E)</option>
+                    </select>
+                  </div>
                 </div>
+                <p className="text-xs text-gray-500 -mt-2">*Maks 50 soal. Disarankan ≤15 per generate. Jumlah pilihan berlaku untuk PG & PG Kompleks.</p>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tingkat Kesulitan (%)</label>
@@ -720,6 +861,45 @@ Format output yang WAJIB dipenuhi:
                       <span className="block text-xs text-gray-500 mt-0.5">Default mati. Gambar AI gratis kadang kurang akurat/relevan. Tanpa gambar, stimulus tetap kaya lewat tabel, grafik, dan deskripsi.</span>
                     </span>
                   </label>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 p-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Upload Gambar Soal (stimulus manual)</label>
+                  <p className="text-xs text-gray-500 mb-2">Upload gambar dan tentukan nomor soalnya. AI akan "melihat" gambar dan membuat soal pada nomor itu berdasarkan gambar tersebut.</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageUpload}
+                    className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  />
+                  {uploadedImages.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {uploadedImages.map((u) => (
+                        <div key={u.id} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2 border border-gray-200">
+                          <img src={u.dataUrl} alt="stimulus" className="w-12 h-12 object-cover rounded-md border border-gray-200" />
+                          <div className="flex items-center gap-1 text-sm">
+                            <span className="text-gray-600">Soal No.</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={u.soalNo}
+                              onChange={(e) => updateImageSoalNo(u.id, e.target.value)}
+                              className="w-16 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeUploadedImage(u.id)}
+                            className="ml-auto text-red-500 hover:text-red-700 text-sm px-2"
+                            title="Hapus gambar"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {error && (
