@@ -160,7 +160,7 @@ Ketentuan Penyusunan Soal:
 - Kontekstual, HOTS, Bernalar kritis, Tidak hanya menghafal.
 - Memiliki stimulus yang menarik (konteks kehidupan nyata, fenomena, data sederhana).
 - Mengembangkan Profil Pelajar Pancasila.
-- Gunakan bahasa Indonesia yang baik, benar, dan tidak ambigu.
+- BAHASA SOAL: Tulis stimulus, pertanyaan, seluruh pilihan jawaban, kunci jawaban, dan pembahasan dalam bahasa pengantar mata pelajaran ini. Untuk Mata Pelajaran "${formData.mataPelajaran}"${/inggris|english/i.test(formData.mataPelajaran) ? ' (Bahasa Inggris), maka SELURUH isi soal — stimulus, pertanyaan, pilihan jawaban, kunci, dan pembahasan — WAJIB ditulis dalam BAHASA INGGRIS' : ', gunakan Bahasa Indonesia (kecuali istilah/kutipan yang memang berbahasa lain). Untuk mapel bahasa asing/daerah lain, tulis soal dalam bahasa tersebut'}. Bahasa harus baik, benar, dan tidak ambigu.
 - PENULISAN MATEMATIKA (WAJIB): DILARANG KERAS memakai LaTeX atau Markdown untuk rumus (jangan ada \\frac, \\times, \\sqrt, \\pi, tanda $...$, \\( \\), \\[ \\], atau ^ dan _ mentah). Tulis SEMUA matematika sebagai HTML biasa yang langsung terbaca: pangkat pakai <sup> (mis. x<sup>2</sup>, 10<sup>3</sup>), indeks/subskrip pakai <sub> (mis. H<sub>2</sub>O), pecahan tulis a/b atau gunakan simbol ½ ¾, dan pakai simbol Unicode untuk operasi: × ÷ − ± ≤ ≥ ≠ ≈ √ π ° ∑ ∞ (BUKAN kode LaTeX). Rumus harus tampil rapi tanpa kode mentah.
 - Gunakan variasi tingkat kognitif (C1-C6, dominan C3-C5).
 - Integrasikan aspek literasi (menemukan, memahami, menginterpretasi, mengevaluasi informasi).
@@ -194,14 +194,27 @@ Format output yang WAJIB dipenuhi:
 (Tabel/Daftar Kunci Jawaban)
 <h2>E. Pembahasan</h2>
 (Penjelasan lengkap untuk masing-masing soal)
-<h2>F. Analisis Soal</h2>
-(Tampilkan Materi, Tujuan, Indikator, Kompetensi Literasi/Numerasi, Level Kognitif, Level Kesulitan, Estimasi waktu)
-<h2>G. Pemeriksaan Kualitas Soal</h2>
-(Daftar centang/checklist yang telah dipenuhi)
+
+PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN membuat bagian "Analisis Soal" maupun "Pemeriksaan Kualitas Soal".
 `;
   };
 
   // Jaring pengaman: ubah notasi LaTeX/Markdown matematika yang lolos menjadi HTML terbaca
+  // Jaring pengaman: buang bagian "Analisis Soal" & "Pemeriksaan Kualitas Soal" bila AI tetap membuatnya
+  const stripUnwantedSections = (html) => {
+    const d = new DOMParser().parseFromString(html, 'text/html');
+    const nodes = Array.from(d.body.children);
+    let cut = false;
+    for (const node of nodes) {
+      if (!cut && /^H[1-3]$/.test(node.tagName) &&
+          /analisis soal|pemeriksaan kualitas/i.test(node.textContent || '')) {
+        cut = true;
+      }
+      if (cut) node.remove();
+    }
+    return d.body.innerHTML;
+  };
+
   const cleanupMath = (s) => {
     let t = s;
     // Hapus delimiter LaTeX
@@ -443,6 +456,8 @@ Format output yang WAJIB dipenuhi:
       textContent = textContent.replace(/```html/gi, '').replace(/```/g, '').trim();
       // Jaring pengaman: ubah sisa notasi LaTeX/Markdown matematika jadi HTML terbaca
       textContent = cleanupMath(textContent);
+      // Buang bagian Analisis Soal & Pemeriksaan Kualitas Soal bila masih muncul
+      textContent = stripUnwantedSections(textContent);
 
       // Sisipkan gambar upload guru ke penandanya (selalu, tak terpengaruh opsi gambar AI)
       textContent = await applyUserImages(textContent);
