@@ -34,23 +34,30 @@ const TKA_KOMPETENSI = {
   'Bahasa Inggris': [
     'Literal Comprehension',
     'Inferential Comprehension',
+    'Evaluation',
     'Vocabulary in Context',
+    'Main Idea',
+    'Supporting Details',
+    'Reference',
+    'Text Organization',
     'Communicative Purpose',
   ],
   IPA: [
     'Menjelaskan Fenomena Ilmiah',
     'Menginterpretasi Data dan Bukti Ilmiah',
-    'Mengevaluasi dan Merancang Investigasi Ilmiah',
+    'Mengevaluasi Penyelidikan Ilmiah',
+    'Menggunakan Bukti Ilmiah',
   ],
 };
 
-// Bank Konteks (BAB 7 manual): 30+ kategori konteks Indonesia
+// Bank Konteks (BAB 7 manual + Context Engine v5): 30+ kategori konteks Indonesia
 const TKA_KONTEKS = [
   'Acak / Bebas dipilih AI (disarankan, variatif)',
-  'Kehidupan Sekolah', 'Keluarga dan Rumah Tangga', 'Budaya dan Tradisi Indonesia',
+  'Kehidupan Sekolah', 'Perpustakaan', 'Masa Pengenalan Lingkungan Sekolah (MPLS)', 'Pramuka',
+  'Keluarga dan Rumah Tangga', 'Budaya dan Tradisi Indonesia', 'Museum',
   'Kesehatan dan Gaya Hidup', 'Teknologi dan Digitalisasi', 'Lingkungan dan Ekologi',
-  'Ekonomi dan Keuangan', 'Transportasi', 'Energi dan Sumber Daya',
-  'Pertanian dan Perkebunan', 'UMKM dan Kewirausahaan', 'Pariwisata',
+  'Ekonomi dan Keuangan', 'Koperasi', 'Transportasi', 'Energi dan Sumber Daya',
+  'Pertanian dan Perkebunan', 'UMKM dan Kewirausahaan', 'Pasar', 'Pariwisata',
   'Olahraga', 'Seni dan Kreativitas', 'Sejarah Indonesia',
   'Geografi dan Kewilayahan', 'Kehidupan Sosial dan Masyarakat', 'Komunikasi dan Media',
   'Industri dan Manufaktur', 'Perdagangan dan Pasar', 'Kuliner dan Pangan',
@@ -59,6 +66,28 @@ const TKA_KONTEKS = [
   'Kesehatan Mental dan Sosial-Emosional', 'Keselamatan Kerja', 'Perikanan dan Kelautan',
   'Peternakan', 'Ruang Angkasa dan Astronomi',
 ];
+
+// Bank Referensi Submateri & Jenis Teks per jenjang (Subject Engine, v5 Master Prompt) —
+// dipakai sebagai ACUAN internal AI, bukan pilihan UI, agar submateri & jenis teks sesuai standar TKA.
+const TKA_REFERENSI = {
+  Matematika: {
+    SD: 'Ruang lingkup: Bilangan, Geometri, Pengukuran, Data.',
+    SMP: 'Ruang lingkup: Bilangan, Aljabar, Geometri, Pengukuran, Data, Peluang.',
+    catatan: 'Distribusi default level Knowing : Applying : Reasoning = 20% : 40% : 40% bila tidak dispesifikkan lain.',
+  },
+  'Bahasa Indonesia': {
+    SD: 'Teks 150-200 kata. Jenis teks: cerita, informasi, petunjuk, pengumuman, biografi sederhana.',
+    SMP: 'Teks 200-250 kata. Jenis teks: artikel, berita, laporan, prosedur, biografi, cerita (boleh dua teks terkait bila diperlukan).',
+  },
+  'Bahasa Inggris': {
+    SD: 'Teks 80-150 words. Text types: Announcement, Notice, Greeting Card, Short Message, Procedure, Narrative, Descriptive, Recount.',
+    SMP: 'Teks 150-250 words. Text types: Report, Email, Advertisement, Poster, Schedule, Narrative, Descriptive, Recount, Procedure.',
+  },
+  IPA: {
+    SD: 'Ruang lingkup: makhluk hidup, energi, gaya, cahaya, bunyi, bumi & antariksa, lingkungan, perubahan wujud.',
+    SMP: 'Ruang lingkup: sistem organ, genetika, ekosistem, bioteknologi, zat, reaksi kimia, asam basa, tekanan, gelombang, listrik, kemagnetan, tata surya, perubahan iklim, pencemaran.',
+  },
+};
 
 // Kelas SD/SMP → Fase Kurikulum Merdeka (untuk referensi internal prompt TKA)
 const kelasToFase = (jenjang, kelas) => {
@@ -344,6 +373,9 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN membuat bagian "
     const domainFramework = TKA_KOMPETENSI[tkaData.mataPelajaran] || [];
     const isKontekAcak = tkaData.konteks === TKA_KONTEKS[0];
     const daftarKonteks = TKA_KONTEKS.slice(1).join(', ');
+    const refSubjek = TKA_REFERENSI[tkaData.mataPelajaran] || {};
+    const refJenjang = refSubjek[jenjang] || '';
+    const catatanDistribusi = refSubjek.catatan || '';
 
     return `
 Anda adalah TKA Assessment Engine — sistem pakar penyusun soal Tes Kemampuan Akademik (TKA) untuk jenjang SD dan SMP di Indonesia. Anda mengikuti alur kerja profesional secara berurutan dan INTERNAL (jangan tampilkan proses ini di output, cukup hasil akhirnya):
@@ -367,9 +399,12 @@ ${uploadedImages.length > 0 ? `
 GAMBAR STIMULUS DARI GURU (WAJIB DIPAKAI): Guru melampirkan ${uploadedImages.length} gambar (terlampir di pesan ini). Tiap gambar adalah STIMULUS WAJIB untuk soal nomor tertentu — perhatikan keterangan "[Gambar stimulus WAJIB untuk Soal No. X]" tepat sebelum tiap gambar. Untuk setiap gambar: AMATI isinya dengan teliti, lalu SUSUN soal nomor X benar-benar BERDASARKAN gambar tersebut. Pada bagian "C. Soal", di soal nomor X, sisipkan penanda gambar PERSIS ini di posisi stimulus: <img class="user-stimulus" data-userimg="X" alt="Gambar Stimulus Soal X"/> (JANGAN beri atribut src). Soal yang memakai gambar guru: nomor ${uploadedImages.map((u) => u.soalNo).join(', ')}. Pastikan total ${tkaData.jumlahSoal} soal mencakup nomor-nomor itu.
 ` : ''}
 
-Kerangka Kompetensi Domain "${tkaData.mataPelajaran}" (acuan TKA Assessment Engine, BAB 3-6 manual):
+Kerangka Kompetensi Domain "${tkaData.mataPelajaran}" (acuan TKA Assessment Engine, Subject Engine):
 ${domainFramework.map((d, i) => `${i + 1}. ${d}`).join('\n')}
 Distribusikan soal agar mencakup variasi domain di atas, dengan penekanan MAYORITAS pada domain yang diutamakan ("${tkaData.domainKompetensi}").
+${catatanDistribusi ? catatanDistribusi : ''}
+
+Bank Submateri & Jenis Teks Acuan untuk "${tkaData.mataPelajaran}" jenjang ${jenjang} (Subject Engine): ${refJenjang} Gunakan sebagai acuan cakupan bila Materi/Topik yang diisi guru bersifat umum; tetap prioritaskan Materi/Topik spesifik dari guru jika sudah rinci.
 
 Ketentuan Penyusunan Soal TKA:
 - Level Kesulitan: Mudah ${tkaData.tingkatKesulitan.mudah}%, Sedang ${tkaData.tingkatKesulitan.sedang}%, Sulit ${tkaData.tingkatKesulitan.sulit}%.
@@ -380,12 +415,13 @@ Ketentuan Penyusunan Soal TKA:
 - Stimulus harus ORISINAL — jangan menyalin dari buku, gunakan nama/tokoh/tempat yang bervariasi.
 - PEMERIKSAAN PENGECOH (khusus PG/PGK): setiap pengecoh (opsi salah) harus masuk akal dan mencerminkan miskonsepsi umum siswa jenjang ini, BUKAN opsi asal-asalan yang jelas salah.
 - VALIDASI JAWABAN: pastikan kunci jawaban benar secara akademis dan konsisten dengan pembahasan.
-- DETEKSI KEMIRIPAN: setiap soal harus berbeda signifikan satu sama lain (konteks, angka, nama, struktur kalimat) — dilarang membuat soal yang terasa duplikat/template yang sama persis.
+- DETEKSI KEMIRIPAN: setiap soal harus berbeda signifikan satu sama lain — variasikan konteks, angka, nama, struktur kalimat, DAN strategi/cara penyelesaian — dilarang membuat soal yang terasa duplikat/template yang sama persis.
 - BAHASA SOAL: Tulis stimulus, pertanyaan, seluruh pilihan jawaban, kunci jawaban, dan pembahasan dalam bahasa pengantar mata pelajaran ini. Untuk Mata Pelajaran "${tkaData.mataPelajaran}"${/inggris|english/i.test(tkaData.mataPelajaran) ? ' (Bahasa Inggris), maka SELURUH isi soal — stimulus, pertanyaan, pilihan jawaban, kunci, dan pembahasan — WAJIB ditulis dalam BAHASA INGGRIS' : ', gunakan Bahasa Indonesia yang baik dan benar'}. Bahasa harus baku, jelas, dan tidak ambigu.
 - PENULISAN MATEMATIKA (WAJIB): DILARANG KERAS memakai LaTeX atau Markdown untuk rumus (jangan ada \\frac, \\times, \\sqrt, \\pi, tanda $...$, \\( \\), \\[ \\], atau ^ dan _ mentah). Tulis SEMUA matematika sebagai HTML biasa yang langsung terbaca: pangkat pakai <sup> (mis. x<sup>2</sup>, 10<sup>3</sup>), indeks/subskrip pakai <sub> (mis. H<sub>2</sub>O), pecahan tulis a/b atau gunakan simbol ½ ¾, dan pakai simbol Unicode untuk operasi: × ÷ − ± ≤ ≥ ≠ ≈ √ π ° ∑ ∞ (BUKAN kode LaTeX). Rumus harus tampil rapi tanpa kode mentah.
-- VARIASI STIMULUS: Setiap soal WAJIB memiliki stimulus yang sesuai konteks, dan variasikan bentuknya antar soal. Pilih bentuk paling tepat: teks/wacana, studi kasus nyata, tabel data, grafik/diagram, persentase atau data statistik, infografis, atau gambar/ilustrasi deskriptif. Patuhi format teknis berikut agar tampil benar:
+- VARIASI STIMULUS: Setiap soal WAJIB memiliki stimulus yang sesuai konteks, dan variasikan bentuknya antar soal. Pilih bentuk paling tepat: teks/wacana, studi kasus nyata, tabel data, grafik/diagram, denah/peta sederhana (khusus Matematika: Geometri/Pengukuran), persentase atau data statistik, infografis, atau gambar/ilustrasi deskriptif. Patuhi format teknis berikut agar tampil benar:
   - TABEL, DATA STATISTIK & PERSENTASE: gunakan <table border="1" cellpadding="5"> berisi data yang realistis dan konsisten.
   - GRAFIK/DIAGRAM (batang, garis, lingkaran/pie): DILARANG dibuat sebagai gambar/foto. WAJIB dibuat sebagai kode <svg> inline yang valid dan akurat sesuai data — lengkap dengan sumbu, label, dan nilai yang terbaca jelas, lebar maksimal 480px. Bila relevan, sertakan juga tabel datanya.
+  - DENAH/PETA SEDERHANA (khusus Matematika, mis. soal jarak/skala/arah): WAJIB dibuat sebagai kode <svg> inline dengan label lokasi/jarak yang jelas dan akurat, BUKAN gambar/foto.
   - INFOGRAFIS: kombinasikan tabel dan/atau <svg> sederhana dengan poin-poin teks ringkas yang tertata rapi.
 ${tkaData.sertakanGambar
       ? `  - GAMBAR/ILUSTRASI DESKRIPTIF: gunakan tag ini persis: <img class="generated-image" data-prompt="[PROMPT GAMBAR DALAM BAHASA INGGRIS]" src="https://via.placeholder.com/400x200?text=Memuat..." alt="Ilustrasi Soal" style="max-width: 100%; border-radius: 8px; margin: 10px 0;"/>. ATURAN KETAT agar gambar RELEVAN & AKURAT: (1) Pakai gambar HANYA bila benar-benar membantu memahami soal, maksimal untuk 2-3 soal saja, JANGAN setiap soal. (2) HANYA untuk objek/pemandangan/benda nyata yang sederhana dan umum. (3) JANGAN minta gambar yang butuh ketepatan ilmiah/teknis (diagram berlabel, anatomi detail, peta, rumus, struktur kimia, grafik) — untuk itu pakai SVG/tabel/teks. (4) AKURASI WAJIB: data-prompt harus secara eksplisit menyebutkan SEMUA objek, jumlah, warna, posisi, dan detail spesifik yang disebut di teks soal/stimulus itu sendiri — supaya gambar cocok persis dengan yang ditanyakan, bukan sekadar mirip tema. (5) GAYA RINGAN: minta gaya "simple flat illustration" atau "clean minimalist photo", "plain white or light background", "no clutter, no extra objects" — supaya gambar sederhana, ukuran file kecil, dan cepat dibuat. (6) data-prompt harus deskriptif, konkret, dalam SATU kalimat singkat, dan TANPA teks/tulisan/angka di dalam gambar.`
@@ -396,7 +432,7 @@ ${tkaData.sertakanGambar
   - Benar-Salah (BS): sajikan sebagai <table border="1" cellpadding="5"> dengan kolom "Pernyataan", "Benar (☐)", dan "Salah (☐)"; isi sel Benar/Salah dengan "☐".
   - Menjodohkan: gunakan <table border="1" cellpadding="5"> dua kolom (kiri pernyataan bernomor, kanan pilihan jawaban berhuruf yang diacak).
   - Isian Singkat: akhiri kalimat dengan garis isian "_______".
-  - Uraian: beri instruksi jelas dan sediakan ruang jawaban.
+  - Uraian Terbatas: beri instruksi jelas dengan batasan cakupan jawaban yang spesifik (bukan esai bebas), dan sediakan ruang jawaban.
 
 BERIKAN OUTPUT DALAM FORMAT HTML MURNI (tanpa tag <html>, <head>, atau <body>, langsung gunakan tag heading seperti <h2>, <h3>, <p>, <table>, <ul>, <ol>, <b>, dll). Pastikan styling tabel rapi menggunakan atribut HTML border="1" cellpadding="5". Jangan gunakan markdown (\`\`\`).
 
@@ -404,7 +440,7 @@ Format output yang WAJIB dipenuhi:
 <h2>A. Identitas Soal</h2>
 (tampilkan identitas: mapel, jenjang, kelas, semester, jenis tes, domain kompetensi)
 <h2>B. Kisi-kisi Soal</h2>
-(Buat tabel kisi-kisi berisi No, Materi, Domain Kompetensi, Indikator Soal, Konteks, Level Kognitif, Bentuk Soal, Nomor)
+(Buat tabel kisi-kisi berisi No, Materi, Submateri, Domain Kompetensi, Indikator Soal, Konteks, Level Kognitif, Bentuk Soal, Nomor)
 <h2>C. Soal</h2>
 (Tampilkan tiap soal lengkap dengan stimulus, pertanyaan, dan pilihan/area jawaban)
 <h2>D. Kunci Jawaban</h2>
