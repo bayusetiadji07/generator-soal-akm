@@ -11,10 +11,10 @@ const FASE = {
 };
 
 // ===== Konstanta khusus Generator TKA (mengikuti TKA Assessment Engine Manual) =====
-// Ruang lingkup TKA: jenjang SD & SMP, 4 mapel inti.
+// Ruang lingkup TKA: jenjang SD & SMP, 4 mapel inti. TKA selalu di akhir jenjang (SD=kelas 6, SMP=kelas 9) — tidak perlu pilih kelas/semester.
 const TKA_JENJANG = {
-  SD: { kelas: ['1', '2', '3', '4', '5', '6'] },
-  SMP: { kelas: ['7', '8', '9'] },
+  SD: { kelasAkhir: '6' },
+  SMP: { kelasAkhir: '9' },
 };
 
 const TKA_SUBJECTS = ['Matematika', 'Bahasa Indonesia', 'Bahasa Inggris', 'IPA'];
@@ -89,6 +89,88 @@ const TKA_REFERENSI = {
   },
 };
 
+// Bank Kategori Materi (checkbox) per mapel & jenjang. Guru hanya memilih KATEGORI;
+// daftar "submateri" di dalamnya HANYA acuan internal — AI yang otomatis memilih submateri spesifik.
+const TKA_MATERI_KATEGORI = {
+  Matematika: {
+    SD: [
+      { id: 'bilangan', label: 'A. Bilangan', submateri: ['Operasi hitung campuran', 'Bilangan bulat', 'Pecahan', 'Desimal', 'Persen', 'KPK', 'FPB', 'Faktor dan kelipatan', 'Pola bilangan', 'Perbandingan', 'Skala'] },
+      { id: 'geometri_pengukuran', label: 'B. Geometri dan Pengukuran', submateri: ['Bangun datar: persegi, persegi panjang, segitiga, jajar genjang, trapesium, layang-layang, belah ketupat, lingkaran', 'Bangun ruang: kubus, balok, tabung sederhana', 'Pengukuran: panjang, berat, waktu, sudut, luas, keliling, volume'] },
+      { id: 'data', label: 'C. Data', submateri: ['Tabel', 'Diagram batang', 'Diagram gambar', 'Diagram garis sederhana', 'Rata-rata', 'Membaca informasi'] },
+    ],
+    SMP: [
+      { id: 'bilangan', label: 'Bilangan', submateri: ['Bilangan bulat, pecahan, desimal, persen', 'Bilangan berpangkat dan bentuk akar', 'Pola bilangan'] },
+      { id: 'aljabar', label: 'Aljabar', submateri: ['Bentuk aljabar', 'Persamaan dan pertidaksamaan linear', 'Fungsi dan relasi', 'Sistem persamaan linear dua variabel'] },
+      { id: 'geometri', label: 'Geometri', submateri: ['Bangun datar dan segi banyak', 'Bangun ruang sisi datar dan lengkung', 'Transformasi geometri', 'Teorema Pythagoras', 'Kesebangunan dan kekongruenan'] },
+      { id: 'pengukuran', label: 'Pengukuran', submateri: ['Luas dan keliling', 'Volume dan luas permukaan', 'Satuan dan konversi'] },
+      { id: 'data', label: 'Data', submateri: ['Penyajian data (tabel, diagram, grafik)', 'Ukuran pemusatan (mean, median, modus)', 'Ukuran penyebaran'] },
+      { id: 'peluang', label: 'Peluang', submateri: ['Peluang empirik', 'Peluang teoretik', 'Ruang sampel'] },
+    ],
+  },
+  'Bahasa Indonesia': {
+    SD: [
+      { id: 'cerita', label: 'Teks Cerita/Narasi', submateri: ['Cerita rakyat', 'Fabel', 'Cerita anak'] },
+      { id: 'informasi', label: 'Teks Informasi', submateri: ['Teks informasi umum', 'Teks laporan sederhana'] },
+      { id: 'petunjuk', label: 'Teks Petunjuk/Prosedur', submateri: ['Petunjuk penggunaan', 'Petunjuk membuat sesuatu'] },
+      { id: 'pengumuman', label: 'Teks Pengumuman', submateri: ['Pengumuman sekolah', 'Pengumuman umum'] },
+      { id: 'biografi', label: 'Biografi Sederhana', submateri: ['Tokoh terkenal', 'Tokoh sejarah'] },
+    ],
+    SMP: [
+      { id: 'artikel', label: 'Artikel', submateri: ['Artikel opini', 'Artikel populer'] },
+      { id: 'berita', label: 'Berita', submateri: ['Berita faktual', 'Berita peristiwa'] },
+      { id: 'laporan', label: 'Teks Laporan', submateri: ['Laporan hasil observasi', 'Laporan kegiatan'] },
+      { id: 'prosedur', label: 'Teks Prosedur', submateri: ['Prosedur kompleks', 'Prosedur sederhana'] },
+      { id: 'biografi', label: 'Biografi', submateri: ['Tokoh nasional', 'Tokoh internasional'] },
+      { id: 'cerita', label: 'Teks Cerita/Narasi', submateri: ['Cerpen', 'Fabel/legenda'] },
+    ],
+  },
+  'Bahasa Inggris': {
+    SD: [
+      { id: 'announcement', label: 'Announcement', submateri: ['School announcement', 'Public announcement'] },
+      { id: 'notice', label: 'Notice', submateri: ['Warning notice', 'Information notice'] },
+      { id: 'greeting_card', label: 'Greeting Card', submateri: ['Birthday card', 'Holiday card'] },
+      { id: 'short_message', label: 'Short Message', submateri: ['Text message', 'Note'] },
+      { id: 'procedure', label: 'Procedure', submateri: ['How to make/do something'] },
+      { id: 'narrative', label: 'Narrative', submateri: ['Fable', 'Folktale'] },
+      { id: 'descriptive', label: 'Descriptive', submateri: ['Describing people/places/animals'] },
+      { id: 'recount', label: 'Recount', submateri: ['Personal experience', 'Past event'] },
+    ],
+    SMP: [
+      { id: 'report', label: 'Report', submateri: ['Report on animals/plants/phenomena'] },
+      { id: 'email', label: 'Email', submateri: ['Personal email', 'Formal email'] },
+      { id: 'advertisement', label: 'Advertisement', submateri: ['Product ad', 'Service ad'] },
+      { id: 'poster', label: 'Poster', submateri: ['Event poster', 'Campaign poster'] },
+      { id: 'schedule', label: 'Schedule', submateri: ['Timetable', 'Itinerary'] },
+      { id: 'narrative', label: 'Narrative', submateri: ['Short story'] },
+      { id: 'descriptive', label: 'Descriptive', submateri: ['Describing places/people'] },
+      { id: 'recount', label: 'Recount', submateri: ['Diary entry', 'Past experience'] },
+      { id: 'procedure', label: 'Procedure', submateri: ['Recipe', 'Instructions'] },
+    ],
+  },
+  IPA: {
+    SD: [
+      { id: 'makhluk_hidup', label: 'Makhluk Hidup', submateri: ['Ciri makhluk hidup', 'Daur hidup hewan', 'Bagian tumbuhan'] },
+      { id: 'energi', label: 'Energi', submateri: ['Sumber energi', 'Perubahan bentuk energi'] },
+      { id: 'gaya', label: 'Gaya', submateri: ['Jenis gaya', 'Pengaruh gaya terhadap benda'] },
+      { id: 'cahaya_bunyi', label: 'Cahaya dan Bunyi', submateri: ['Sifat cahaya', 'Sifat bunyi'] },
+      { id: 'bumi_antariksa', label: 'Bumi dan Antariksa', submateri: ['Rotasi dan revolusi', 'Sistem tata surya sederhana'] },
+      { id: 'lingkungan', label: 'Lingkungan', submateri: ['Ekosistem sederhana', 'Pelestarian lingkungan'] },
+      { id: 'perubahan_wujud', label: 'Perubahan Wujud Benda', submateri: ['Mencair, membeku, menguap, mengembun'] },
+    ],
+    SMP: [
+      { id: 'sistem_organ', label: 'Sistem Organ', submateri: ['Sistem pencernaan, pernapasan, peredaran darah, gerak'] },
+      { id: 'genetika', label: 'Genetika', submateri: ['Pewarisan sifat', 'Adaptasi dan seleksi alam'] },
+      { id: 'ekosistem', label: 'Ekosistem', submateri: ['Rantai makanan', 'Interaksi antar komponen ekosistem'] },
+      { id: 'bioteknologi', label: 'Bioteknologi', submateri: ['Bioteknologi konvensional', 'Bioteknologi modern'] },
+      { id: 'zat_reaksi', label: 'Zat dan Reaksi Kimia', submateri: ['Sifat zat', 'Asam basa', 'Reaksi kimia sederhana'] },
+      { id: 'tekanan_gelombang', label: 'Tekanan dan Gelombang', submateri: ['Tekanan zat', 'Gelombang dan bunyi'] },
+      { id: 'listrik_magnet', label: 'Listrik dan Kemagnetan', submateri: ['Rangkaian listrik', 'Kemagnetan'] },
+      { id: 'tata_surya', label: 'Tata Surya dan Iklim', submateri: ['Tata surya', 'Perubahan iklim'] },
+      { id: 'pencemaran', label: 'Pencemaran Lingkungan', submateri: ['Pencemaran air, udara, tanah'] },
+    ],
+  },
+};
+
 // Kelas SD/SMP → Fase Kurikulum Merdeka (untuk referensi internal prompt TKA)
 const kelasToFase = (jenjang, kelas) => {
   if (jenjang === 'SMP') return 'D';
@@ -104,15 +186,15 @@ export default function App() {
   const [tkaData, setTkaData] = useState({
     mataPelajaran: 'Matematika',
     jenjang: 'SD',
-    kelas: '1',
-    semester: 'Ganjil',
-    domainKompetensi: TKA_KOMPETENSI.Matematika[0],
-    materi: '',
+    kelas: TKA_JENJANG.SD.kelasAkhir, // TKA selalu di akhir jenjang: SD=6, SMP=9 (tidak dipilih user)
+    domainKompetensi: [...TKA_KOMPETENSI.Matematika], // multi-pilih (checkbox)
+    materiKategori: [], // id kategori materi yang dicentang (lihat TKA_MATERI_KATEGORI)
     konteks: TKA_KONTEKS[0],
     tipeTes: 'Latihan TKA',
     jumlahSoal: 5,
     jumlahPilihan: '4',
-    sertakanGambar: false,
+    modeGambar: 'tidak', // 'tidak' | 'gambar' (auto-generate & tampil) | 'deskripsi' (teks prompt utk AI lain)
+
     bentukSoal: {
       pg: true,
       pgk: false,
@@ -164,6 +246,10 @@ export default function App() {
   const [apiKey, setApiKey] = useState(() => {
     try { return localStorage.getItem('gemini_api_key') || ''; } catch { return ''; }
   });
+  // 'bawaan' = pakai GEMINI_API_KEY di server Vercel (harus diset sendiri di sana); 'custom' = pakai key yang diinput manual
+  const [apiKeySource, setApiKeySource] = useState(() => {
+    try { return localStorage.getItem('gemini_api_key_source') || 'custom'; } catch { return 'custom'; }
+  });
   const [showKey, setShowKey] = useState(false);
   const [uploadedImages, setUploadedImages] = useState([]); // { id, soalNo, dataUrl }
   const resultRef = useRef(null);
@@ -182,6 +268,11 @@ export default function App() {
     const v = e.target.value.trim();
     setApiKey(v);
     try { localStorage.setItem('gemini_api_key', v); } catch { /* abaikan */ }
+  };
+
+  const handleApiKeySourceChange = (src) => {
+    setApiKeySource(src);
+    try { localStorage.setItem('gemini_api_key_source', src); } catch { /* abaikan */ }
   };
 
   // Upload gambar soal manual (stimulus untuk nomor tertentu)
@@ -262,14 +353,14 @@ export default function App() {
   // ===== Handler khusus form Generator TKA =====
   const handleTkaInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (type === 'checkbox' && name === 'sertakanGambar') {
-      setTkaData(prev => ({ ...prev, sertakanGambar: checked }));
-    } else if (name === 'mataPelajaran') {
-      // Ganti mapel → reset domain kompetensi ke opsi pertama mapel tsb
-      setTkaData(prev => ({ ...prev, mataPelajaran: value, domainKompetensi: TKA_KOMPETENSI[value][0] }));
+    if (name === 'mataPelajaran') {
+      // Ganti mapel → reset domain kompetensi (semua dicentang) & materi kategori mapel tsb
+      setTkaData(prev => ({ ...prev, mataPelajaran: value, domainKompetensi: [...TKA_KOMPETENSI[value]], materiKategori: [] }));
     } else if (name === 'jenjang') {
-      // Ganti jenjang → reset kelas ke kelas pertama jenjang tsb
-      setTkaData(prev => ({ ...prev, jenjang: value, kelas: TKA_JENJANG[value].kelas[0] }));
+      // Ganti jenjang → kelas otomatis ke akhir jenjang (SD=6, SMP=9), reset materi kategori (beda per jenjang)
+      setTkaData(prev => ({ ...prev, jenjang: value, kelas: TKA_JENJANG[value].kelasAkhir, materiKategori: [] }));
+    } else if (name === 'modeGambar') {
+      setTkaData(prev => ({ ...prev, modeGambar: value }));
     } else if (type === 'checkbox') {
       setTkaData(prev => ({
         ...prev,
@@ -278,6 +369,26 @@ export default function App() {
     } else {
       setTkaData(prev => ({ ...prev, [name]: value }));
     }
+  };
+
+  // Toggle satu domain kompetensi (checkbox multi-pilih)
+  const toggleTkaDomain = (domain) => {
+    setTkaData(prev => ({
+      ...prev,
+      domainKompetensi: prev.domainKompetensi.includes(domain)
+        ? prev.domainKompetensi.filter(d => d !== domain)
+        : [...prev.domainKompetensi, domain]
+    }));
+  };
+
+  // Toggle satu kategori materi (checkbox multi-pilih)
+  const toggleTkaMateriKategori = (id) => {
+    setTkaData(prev => ({
+      ...prev,
+      materiKategori: prev.materiKategori.includes(id)
+        ? prev.materiKategori.filter(x => x !== id)
+        : [...prev.materiKategori, id]
+    }));
   };
 
   const handleTkaDifficultyChange = (e) => {
@@ -370,12 +481,17 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN membuat bagian "
   const generateTkaPrompt = () => {
     const jenjang = tkaData.jenjang;
     const fase = kelasToFase(jenjang, tkaData.kelas);
-    const domainFramework = TKA_KOMPETENSI[tkaData.mataPelajaran] || [];
     const isKontekAcak = tkaData.konteks === TKA_KONTEKS[0];
     const daftarKonteks = TKA_KONTEKS.slice(1).join(', ');
     const refSubjek = TKA_REFERENSI[tkaData.mataPelajaran] || {};
     const refJenjang = refSubjek[jenjang] || '';
     const catatanDistribusi = refSubjek.catatan || '';
+
+    const kategoriTersedia = (TKA_MATERI_KATEGORI[tkaData.mataPelajaran] && TKA_MATERI_KATEGORI[tkaData.mataPelajaran][jenjang]) || [];
+    const kategoriTerpilih = kategoriTersedia.filter(k => tkaData.materiKategori.includes(k.id));
+    const materiBlock = kategoriTerpilih.length > 0
+      ? kategoriTerpilih.map(k => `- ${k.label}\n  Submateri acuan (AI pilih otomatis yang paling sesuai, boleh gabungkan beberapa): ${k.submateri.join('; ')}`).join('\n')
+      : `(Guru tidak memilih kategori spesifik — AI bebas memilih materi dari seluruh ruang lingkup ${tkaData.mataPelajaran} jenjang ${jenjang}: ${refJenjang})`;
 
     return `
 Anda adalah TKA Assessment Engine — sistem pakar penyusun soal Tes Kemampuan Akademik (TKA) untuk jenjang SD dan SMP di Indonesia. Anda mengikuti alur kerja profesional secara berurutan dan INTERNAL (jangan tampilkan proses ini di output, cukup hasil akhirnya):
@@ -384,11 +500,11 @@ Prinsip TKA: VALID, RELIABEL, AUTENTIK, KONTEKSTUAL, dan BERBASIS KOMPETENSI —
 
 Data Penyusunan Soal TKA:
 Mata Pelajaran: ${tkaData.mataPelajaran}
-Jenjang: ${jenjang}, Kelas ${tkaData.kelas} (setara Fase ${fase} Kurikulum Merdeka)
-Semester: ${tkaData.semester}
+Jenjang: ${jenjang}, Kelas ${tkaData.kelas} (akhir jenjang ${jenjang}; setara Fase ${fase} Kurikulum Merdeka)
 Keperluan / Jenis Tes: ${tkaData.tipeTes}
-Materi / Topik: ${tkaData.materi}
-Domain Kompetensi yang Diutamakan: ${tkaData.domainKompetensi}
+Kategori Materi yang Dipilih Guru:
+${materiBlock}
+Domain Kompetensi yang Diutamakan (boleh lebih dari satu): ${tkaData.domainKompetensi.join(', ')}
 Konteks Stimulus: ${isKontekAcak
       ? `Bebas dipilih AI dari Bank Konteks berikut — WAJIB VARIASIKAN antar soal, jangan mengulang konteks yang sama dua kali: ${daftarKonteks}.`
       : `WAJIB gunakan konteks "${tkaData.konteks}" untuk seluruh stimulus soal (boleh divariasikan sudut pandang/situasinya, tetap dalam kategori ini).`}
@@ -399,12 +515,8 @@ ${uploadedImages.length > 0 ? `
 GAMBAR STIMULUS DARI GURU (WAJIB DIPAKAI): Guru melampirkan ${uploadedImages.length} gambar (terlampir di pesan ini). Tiap gambar adalah STIMULUS WAJIB untuk soal nomor tertentu — perhatikan keterangan "[Gambar stimulus WAJIB untuk Soal No. X]" tepat sebelum tiap gambar. Untuk setiap gambar: AMATI isinya dengan teliti, lalu SUSUN soal nomor X benar-benar BERDASARKAN gambar tersebut. Pada bagian "C. Soal", di soal nomor X, sisipkan penanda gambar PERSIS ini di posisi stimulus: <img class="user-stimulus" data-userimg="X" alt="Gambar Stimulus Soal X"/> (JANGAN beri atribut src). Soal yang memakai gambar guru: nomor ${uploadedImages.map((u) => u.soalNo).join(', ')}. Pastikan total ${tkaData.jumlahSoal} soal mencakup nomor-nomor itu.
 ` : ''}
 
-Kerangka Kompetensi Domain "${tkaData.mataPelajaran}" (acuan TKA Assessment Engine, Subject Engine):
-${domainFramework.map((d, i) => `${i + 1}. ${d}`).join('\n')}
-Distribusikan soal agar mencakup variasi domain di atas, dengan penekanan MAYORITAS pada domain yang diutamakan ("${tkaData.domainKompetensi}").
+Distribusikan soal agar mencakup variasi domain kompetensi yang dipilih di atas secara merata (atau sesuai proporsi bila hanya satu domain dipilih).
 ${catatanDistribusi ? catatanDistribusi : ''}
-
-Bank Submateri & Jenis Teks Acuan untuk "${tkaData.mataPelajaran}" jenjang ${jenjang} (Subject Engine): ${refJenjang} Gunakan sebagai acuan cakupan bila Materi/Topik yang diisi guru bersifat umum; tetap prioritaskan Materi/Topik spesifik dari guru jika sudah rinci.
 
 Ketentuan Penyusunan Soal TKA:
 - Level Kesulitan: Mudah ${tkaData.tingkatKesulitan.mudah}%, Sedang ${tkaData.tingkatKesulitan.sedang}%, Sulit ${tkaData.tingkatKesulitan.sulit}%.
@@ -423,7 +535,7 @@ Ketentuan Penyusunan Soal TKA:
   - GRAFIK/DIAGRAM (batang, garis, lingkaran/pie): DILARANG dibuat sebagai gambar/foto. WAJIB dibuat sebagai kode <svg> inline yang valid dan akurat sesuai data — lengkap dengan sumbu, label, dan nilai yang terbaca jelas, lebar maksimal 480px. Bila relevan, sertakan juga tabel datanya.
   - DENAH/PETA SEDERHANA (khusus Matematika, mis. soal jarak/skala/arah): WAJIB dibuat sebagai kode <svg> inline dengan label lokasi/jarak yang jelas dan akurat, BUKAN gambar/foto.
   - INFOGRAFIS: kombinasikan tabel dan/atau <svg> sederhana dengan poin-poin teks ringkas yang tertata rapi.
-${tkaData.sertakanGambar
+${tkaData.modeGambar !== 'tidak'
       ? `  - GAMBAR/ILUSTRASI DESKRIPTIF: gunakan tag ini persis: <img class="generated-image" data-prompt="[PROMPT GAMBAR DALAM BAHASA INGGRIS]" src="https://via.placeholder.com/400x200?text=Memuat..." alt="Ilustrasi Soal" style="max-width: 100%; border-radius: 8px; margin: 10px 0;"/>. ATURAN KETAT agar gambar RELEVAN & AKURAT: (1) Pakai gambar HANYA bila benar-benar membantu memahami soal, maksimal untuk 2-3 soal saja, JANGAN setiap soal. (2) HANYA untuk objek/pemandangan/benda nyata yang sederhana dan umum. (3) JANGAN minta gambar yang butuh ketepatan ilmiah/teknis (diagram berlabel, anatomi detail, peta, rumus, struktur kimia, grafik) — untuk itu pakai SVG/tabel/teks. (4) AKURASI WAJIB: data-prompt harus secara eksplisit menyebutkan SEMUA objek, jumlah, warna, posisi, dan detail spesifik yang disebut di teks soal/stimulus itu sendiri — supaya gambar cocok persis dengan yang ditanyakan, bukan sekadar mirip tema. (5) GAYA RINGAN: minta gaya "simple flat illustration" atau "clean minimalist photo", "plain white or light background", "no clutter, no extra objects" — supaya gambar sederhana, ukuran file kecil, dan cepat dibuat. (6) data-prompt harus deskriptif, konkret, dalam SATU kalimat singkat, dan TANPA teks/tulisan/angka di dalam gambar.`
       : `  - GAMBAR FOTO: JANGAN gunakan tag <img> atau gambar foto sama sekali. Sebagai gantinya sajikan stimulus visual lewat tabel, grafik <svg>, atau deskripsi teks yang jelas.`}
 - FORMAT TIAP BENTUK SOAL (WAJIB dipatuhi agar tampilan jawaban benar):
@@ -438,7 +550,7 @@ BERIKAN OUTPUT DALAM FORMAT HTML MURNI (tanpa tag <html>, <head>, atau <body>, l
 
 Format output yang WAJIB dipenuhi:
 <h2>A. Identitas Soal</h2>
-(tampilkan identitas: mapel, jenjang, kelas, semester, jenis tes, domain kompetensi)
+(tampilkan identitas: mapel, jenjang, kelas, jenis tes, domain kompetensi)
 <h2>B. Kisi-kisi Soal</h2>
 (Buat tabel kisi-kisi berisi No, Materi, Submateri, Domain Kompetensi, Indikator Soal, Konteks, Level Kognitif, Bentuk Soal, Nomor)
 <h2>C. Soal</h2>
@@ -501,7 +613,7 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ apiKey, payload })
+          body: JSON.stringify({ apiKey: apiKeySource === 'bawaan' ? '' : apiKey, payload })
         });
 
         if (!response.ok) {
@@ -654,7 +766,23 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
   };
 
   // Logika generate bersama (dipakai AKM & TKA) — beda hanya teks prompt & flag gambar
-  const runGeneration = async (promptText, sertakanGambarFlag) => {
+  // Ubah <img data-prompt="..."> jadi kotak teks deskripsi (untuk digenerate manual di AI gambar lain)
+  const convertImageDescriptions = (html) => {
+    const d = new DOMParser().parseFromString(html, 'text/html');
+    d.querySelectorAll('img[data-prompt]').forEach((img) => {
+      const promptText = img.getAttribute('data-prompt') || '';
+      const box = d.createElement('div');
+      box.className = 'image-description';
+      box.setAttribute('style', 'border:1px dashed #9ca3af;background:#f9fafb;padding:10px 14px;border-radius:8px;margin:10px 0;font-size:0.9em;color:#374151;');
+      box.innerHTML = '🖼️ <strong>Deskripsi Gambar</strong> (salin ke AI generator gambar lain, mis. Midjourney/DALL·E/Ideogram):<br/><em></em>';
+      box.querySelector('em').textContent = promptText;
+      img.replaceWith(box);
+    });
+    return d.body.innerHTML;
+  };
+
+  // gambarMode: 'tidak' (tanpa gambar) | 'gambar' (auto-generate & tampil) | 'deskripsi' (teks prompt saja)
+  const runGeneration = async (promptText, gambarMode) => {
     setError('');
     setIsGenerating(true);
     setLoadingStatus('Menyusun Asesmen...');
@@ -696,18 +824,21 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
       textContent = await applyUserImages(textContent);
 
       // Jika opsi gambar AI mati, buang HANYA gambar foto AI (jangan sentuh gambar upload guru)
-      if (!sertakanGambarFlag) {
+      if (gambarMode === 'tidak') {
         const d = new DOMParser().parseFromString(textContent, 'text/html');
         d.querySelectorAll('img.generated-image, img[data-prompt]').forEach((im) => im.remove());
         textContent = d.body.innerHTML;
+      } else if (gambarMode === 'deskripsi') {
+        // Mode deskripsi: JANGAN generate gambar asli — tampilkan teks prompt saja untuk digenerate manual di AI lain
+        textContent = convertImageDescriptions(textContent);
       }
 
       setGeneratedHtml(textContent);
       setImageFailures(0);
       setImageError('');
 
-      // Generate gambar hanya bila opsi diaktifkan
-      if (sertakanGambarFlag) {
+      // Generate gambar asli (Pollinations) hanya bila mode 'gambar'
+      if (gambarMode === 'gambar') {
         const { html, failed, errorMsg } = await processImages(textContent);
         setGeneratedHtml(html);
         setImageFailures(failed);
@@ -725,8 +856,8 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
 
   const handleGenerateAkm = async (e) => {
     e.preventDefault();
-    if (!apiKey) {
-      setError('API Key Gemini belum diisi. Masukkan API Key Anda di kolom paling atas (dapatkan gratis di aistudio.google.com/app/apikey).');
+    if (apiKeySource === 'custom' && !apiKey) {
+      setError('API Key Gemini belum diisi. Masukkan API Key Anda di kolom paling atas, atau pilih "API Key Bawaan" (dapatkan gratis di aistudio.google.com/app/apikey).');
       return;
     }
     if (!formData.mataPelajaran || !formData.materi) {
@@ -742,17 +873,21 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
       setError('Total persentase Tingkat Kesulitan harus persis 100%.');
       return;
     }
-    await runGeneration(generatePrompt(), formData.sertakanGambar);
+    await runGeneration(generatePrompt(), formData.sertakanGambar ? 'gambar' : 'tidak');
   };
 
   const handleGenerateTka = async (e) => {
     e.preventDefault();
-    if (!apiKey) {
-      setError('API Key Gemini belum diisi. Masukkan API Key Anda di kolom paling atas (dapatkan gratis di aistudio.google.com/app/apikey).');
+    if (apiKeySource === 'custom' && !apiKey) {
+      setError('API Key Gemini belum diisi. Masukkan API Key Anda di kolom paling atas, atau pilih "API Key Bawaan" (dapatkan gratis di aistudio.google.com/app/apikey).');
       return;
     }
-    if (!tkaData.materi) {
-      setError('Mohon isi Materi / Topik terlebih dahulu.');
+    if (tkaData.materiKategori.length === 0) {
+      setError('Mohon pilih setidaknya satu kategori materi.');
+      return;
+    }
+    if (tkaData.domainKompetensi.length === 0) {
+      setError('Mohon pilih setidaknya satu domain kompetensi.');
       return;
     }
     if (getSelectedBentukSoalTka() === '') {
@@ -764,7 +899,7 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
       setError('Total persentase Tingkat Kesulitan harus persis 100%.');
       return;
     }
-    await runGeneration(generateTkaPrompt(), tkaData.sertakanGambar);
+    await runGeneration(generateTkaPrompt(), tkaData.modeGambar);
   };
 
   // Ubah <svg> (grafik) jadi gambar PNG data URL agar bisa tampil di Word
@@ -1023,71 +1158,53 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
             </select>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Jenjang</label>
-              <select
-                name="jenjang"
-                value={tkaData.jenjang}
-                onChange={handleTkaInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                <option value="SD">SD</option>
-                <option value="SMP">SMP</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Kelas</label>
-              <select
-                name="kelas"
-                value={tkaData.kelas}
-                onChange={handleTkaInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                {TKA_JENJANG[tkaData.jenjang].kelas.map((k) => (
-                  <option key={k} value={k}>Kelas {k}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
-              <select
-                name="semester"
-                value={tkaData.semester}
-                onChange={handleTkaInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                <option value="Ganjil">Ganjil</option>
-                <option value="Genap">Genap</option>
-              </select>
-            </div>
-          </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Domain Kompetensi yang Diutamakan</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Jenjang</label>
             <select
-              name="domainKompetensi"
-              value={tkaData.domainKompetensi}
+              name="jenjang"
+              value={tkaData.jenjang}
               onChange={handleTkaInputChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
             >
-              {TKA_KOMPETENSI[tkaData.mataPelajaran].map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
+              <option value="SD">SD (kelas 6 — akhir jenjang)</option>
+              <option value="SMP">SMP (kelas 9 — akhir jenjang)</option>
             </select>
-            <p className="text-xs text-gray-500 mt-1">Soal tetap divariasikan lintas domain, dengan penekanan mayoritas pada domain ini.</p>
+            <p className="text-xs text-gray-500 mt-1">TKA selalu di akhir jenjang, jadi tidak perlu pilih kelas/semester.</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Materi / Topik</label>
-            <textarea
-              name="materi"
-              value={tkaData.materi}
-              onChange={handleTkaInputChange}
-              rows={3}
-              placeholder="Contoh: Pecahan senilai, Teks laporan hasil observasi, Descriptive text, Siklus air..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none transition"
-            ></textarea>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Domain Kompetensi (boleh lebih dari satu)</label>
+            <div className="grid grid-cols-1 gap-1.5">
+              {TKA_KOMPETENSI[tkaData.mataPelajaran].map((d) => (
+                <label key={d} className="flex items-start space-x-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={tkaData.domainKompetensi.includes(d)}
+                    onChange={() => toggleTkaDomain(d)}
+                    className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>{d}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Materi (boleh lebih dari satu)</label>
+            <div className="space-y-2">
+              {(TKA_MATERI_KATEGORI[tkaData.mataPelajaran]?.[tkaData.jenjang] || []).map((kat) => (
+                <label key={kat.id} className="flex items-start space-x-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={tkaData.materiKategori.includes(kat.id)}
+                    onChange={() => toggleTkaMateriKategori(kat.id)}
+                    className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>{kat.label}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Submateri spesifik dipilih otomatis oleh AI sesuai kategori yang dicentang.</p>
           </div>
 
           <div>
@@ -1210,19 +1327,51 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
           </div>
 
           <div className="rounded-xl border border-gray-200 p-3">
-            <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
-              <input
-                type="checkbox"
-                name="sertakanGambar"
-                checked={tkaData.sertakanGambar}
-                onChange={handleTkaInputChange}
-                className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
-              />
-              <span>
-                <span className="font-medium">Sertakan gambar ilustrasi (AI)</span>
-                <span className="block text-xs text-gray-500 mt-0.5">Default mati. Gambar AI gratis kadang kurang akurat/relevan. Tanpa gambar, stimulus tetap kaya lewat tabel, grafik, dan deskripsi.</span>
-              </span>
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Gambar Ilustrasi Soal</label>
+            <div className="space-y-1.5">
+              <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="modeGambar"
+                  value="tidak"
+                  checked={tkaData.modeGambar === 'tidak'}
+                  onChange={handleTkaInputChange}
+                  className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                />
+                <span>
+                  <span className="font-medium">Tanpa gambar</span>
+                  <span className="block text-xs text-gray-500">Default. Stimulus tetap kaya lewat tabel, grafik, dan deskripsi.</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="modeGambar"
+                  value="gambar"
+                  checked={tkaData.modeGambar === 'gambar'}
+                  onChange={handleTkaInputChange}
+                  className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                />
+                <span>
+                  <span className="font-medium">Gambar (auto-generate & tampil)</span>
+                  <span className="block text-xs text-gray-500">Gambar AI gratis dibuat & langsung tampil di dokumen. Kadang kurang akurat.</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="modeGambar"
+                  value="deskripsi"
+                  checked={tkaData.modeGambar === 'deskripsi'}
+                  onChange={handleTkaInputChange}
+                  className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                />
+                <span>
+                  <span className="font-medium">Hanya deskripsi gambar</span>
+                  <span className="block text-xs text-gray-500">Tanpa gambar asli — tampil teks deskripsi untuk digenerate manual di AI gambar lain (Midjourney/DALL·E/dll).</span>
+                </span>
+              </label>
+            </div>
           </div>
 
           <div className="rounded-xl border border-gray-200 p-3">
@@ -1323,29 +1472,61 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
         </div>
 
         {mode !== null && (
-          <div className={`rounded-xl border p-3 bg-white shadow-sm ${apiKey ? 'border-gray-200' : 'border-amber-300 bg-amber-50'}`}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">API Key Gemini {!apiKey && <span className="text-amber-600">(wajib diisi)</span>}</label>
-            <div className="flex gap-2">
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={handleApiKeyChange}
-                placeholder="Tempel API Key Gemini Anda di sini"
-                autoComplete="off"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => setShowKey((s) => !s)}
-                className="px-3 py-2 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-100"
-              >
-                {showKey ? 'Sembunyi' : 'Lihat'}
-              </button>
+          <div className={`rounded-xl border p-3 bg-white shadow-sm ${apiKeySource === 'custom' && !apiKey ? 'border-amber-300 bg-amber-50' : 'border-gray-200'}`}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Sumber API Key Gemini</label>
+            <div className="flex gap-4 mb-2">
+              <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="apiKeySourceRadio"
+                  checked={apiKeySource === 'bawaan'}
+                  onChange={() => handleApiKeySourceChange('bawaan')}
+                  className="text-blue-600 focus:ring-blue-500"
+                />
+                API Key Bawaan (Server)
+              </label>
+              <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="apiKeySourceRadio"
+                  checked={apiKeySource === 'custom'}
+                  onChange={() => handleApiKeySourceChange('custom')}
+                  className="text-blue-600 focus:ring-blue-500"
+                />
+                API Key Sendiri (Custom)
+              </label>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Tersimpan di browser Anda (tidak dibagikan). Dapatkan gratis di{' '}
-              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-600 underline">aistudio.google.com/app/apikey</a>.
-            </p>
+
+            {apiKeySource === 'bawaan' ? (
+              <p className="text-xs text-gray-500">
+                Memakai key yang diset di server (env var <code className="bg-gray-100 px-1 rounded">GEMINI_API_KEY</code> pada Vercel). Jika belum diset, generate akan gagal — set dulu di Vercel → Settings → Environment Variables, lalu redeploy.
+              </p>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <input
+                    type={showKey ? 'text' : 'password'}
+                    value={apiKey}
+                    onChange={handleApiKeyChange}
+                    placeholder="Tempel API Key Gemini Anda di sini"
+                    autoComplete="off"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey((s) => !s)}
+                    className="px-3 py-2 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-100"
+                  >
+                    {showKey ? 'Sembunyi' : 'Lihat'}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {!apiKey && <span className="text-amber-600 font-medium">(wajib diisi) </span>}
+                  Tersimpan di browser Anda (tidak dibagikan). Dapatkan gratis di{' '}
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-600 underline">aistudio.google.com/app/apikey</a>.
+                </p>
+              </>
+            )}
           </div>
         )}
 
