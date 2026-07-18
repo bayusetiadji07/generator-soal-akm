@@ -241,6 +241,10 @@ export default function App() {
   const [showKey, setShowKey] = useState(false);
   const apiKey = aiProvider === 'deepseek' ? deepseekApiKey : geminiApiKey;
   const [uploadedImages, setUploadedImages] = useState([]); // { id, soalNo, dataUrl }
+  // Jejak nama/tokoh/konteks dari hasil generate SEBELUMNYA (sesi ini saja) — dipakai agar generate
+  // berikutnya tidak mengulang pola yang sama (masing-masing generator punya riwayat sendiri).
+  const [akmHistory, setAkmHistory] = useState([]);
+  const [tkaHistory, setTkaHistory] = useState([]);
   const resultRef = useRef(null);
 
   // Pindah antar generator (AKM/TKA) — reset hasil & lampiran, API key tetap tersimpan
@@ -303,6 +307,40 @@ export default function App() {
   };
 
   const IMG_STYLE = 'max-width: 400px; width: 100%; height: auto; border-radius: 8px; margin: 10px 0; display: block;';
+
+  // Kata umum yang sering muncul di soal (bukan nama/tempat) — dibuang dari daftar "jejak" agar tidak membebani prompt
+  const SIGNATURE_STOPWORDS = new Set([
+    'Soal', 'Kunci', 'Jawaban', 'Pembahasan', 'Identitas', 'Kisi', 'Materi', 'Bentuk', 'Nomor',
+    'Level', 'Kognitif', 'Indikator', 'Tujuan', 'Pembelajaran', 'Kelas', 'Semester', 'Fase',
+    'Mata', 'Pelajaran', 'Perhatikan', 'Berdasarkan', 'Berikut', 'Jika', 'Maka', 'Dengan',
+    'Untuk', 'Yang', 'Adalah', 'Dari', 'Pada', 'Dalam', 'Akan', 'Setiap', 'Semua', 'Salah',
+    'Benar', 'Pilihlah', 'Tentukan', 'Hitunglah', 'Jelaskan', 'Sebutkan', 'Analisislah',
+    'Domain', 'Kompetensi', 'Konteks', 'Data', 'Tabel', 'Diagram', 'Grafik', 'Ilustrasi',
+  ]);
+
+  // Ambil "jejak" nama tokoh/tempat unik dari hasil generate agar bisa dihindari di generate berikutnya
+  const extractSignature = (html) => {
+    try {
+      const div = document.createElement('div');
+      // Sisipkan spasi di batas tag blok agar teks antar elemen tidak bergabung (mis. "...Soal"+"Mata..." -> "SoalMata")
+      div.innerHTML = html.replace(/<\/(p|li|h[1-6]|div|td|tr)>/gi, ' </$1>');
+      const text = div.textContent || '';
+      const words = text.match(/\b[A-Z][a-zA-Z]{2,}\b/g) || [];
+      const uniq = [...new Set(words.filter((w) => !SIGNATURE_STOPWORDS.has(w)))];
+      return uniq.slice(0, 20).join(', ');
+    } catch {
+      return '';
+    }
+  };
+
+  // Bangun instruksi anti-pengulangan: kombinasi jejak generate sebelumnya (mode ini saja) + kode acak
+  const buildAntiRepetisi = (history) => {
+    const nonce = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const riwayat = history.length > 0
+      ? `RIWAYAT GENERATE SEBELUMNYA DI SESI INI (WAJIB DIHINDARI): nama tokoh, tempat, dan istilah spesifik berikut SUDAH PERNAH dipakai — JANGAN gunakan lagi, ganti dengan yang benar-benar berbeda: ${history.join(' | ')}.`
+      : '';
+    return `- OTENTIK & ANTI-PENGULANGAN (WAJIB): Kode variasi sesi ini: ${nonce} (jangan tampilkan kode ini di output, gunakan hanya sebagai isyarat internal untuk memilih kombinasi baru). ${riwayat} Setiap kali diminta generate ulang, hasil HARUS berbeda dari kemungkinan hasil sebelumnya: gunakan nama tokoh Nusantara yang beragam dan TIDAK selalu nama pasaran yang sama (Budi/Ani/Siti/Made — variasikan dengan nama dari berbagai daerah: Jawa, Sunda, Batak, Minang, Bugis, Dayak, Papua, Betawi, dll.), angka/data yang berbeda, tempat/konteks yang berbeda, dan sudut pandang soal yang berbeda meski materi/domain yang diminta sama.`;
+  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -446,6 +484,7 @@ Ketentuan Penyusunan Soal:
 - Integrasikan aspek literasi (menemukan, memahami, menginterpretasi, mengevaluasi informasi).
 - Integrasikan aspek numerasi (membaca tabel/grafik, penalaran matematis, probabilitas, dll). Untuk mapel Non-Matematika, sisipkan unsur numerasi lewat tabel/data/persentase.
 - ORISINAL: Jangan menyalin dari buku. Gunakan nama/tokoh/tempat yang bervariasi.
+${buildAntiRepetisi(akmHistory)}
 - VARIASI STIMULUS: Setiap soal WAJIB memiliki stimulus yang sesuai konteks, dan variasikan bentuknya antar soal. Pilih bentuk paling tepat: teks/wacana, studi kasus nyata, tabel data, grafik/diagram, persentase atau data statistik, infografis, atau gambar/ilustrasi deskriptif. Patuhi format teknis berikut agar tampil benar:
   - TABEL, DATA STATISTIK & PERSENTASE: gunakan <table border="1" cellpadding="5"> berisi data yang realistis dan konsisten.
   - GRAFIK/DIAGRAM (batang, garis, lingkaran/pie): DILARANG dibuat sebagai gambar/foto. WAJIB dibuat sebagai kode <svg> inline yang valid dan akurat sesuai data — lengkap dengan sumbu, label, dan nilai yang terbaca jelas, lebar maksimal 480px. Bila relevan, sertakan juga tabel datanya.
@@ -527,6 +566,7 @@ Ketentuan Penyusunan Soal TKA:
 - Berorientasi Literasi (untuk Bahasa Indonesia/Bahasa Inggris), Numerasi (untuk Matematika), atau Literasi Sains (untuk IPA) sesuai kerangka kompetensi domain di atas.
 - Kontekstual dengan kehidupan nyata Indonesia, HOTS, bernalar kritis, tidak hanya menghafal.
 - Stimulus harus ORISINAL — jangan menyalin dari buku, gunakan nama/tokoh/tempat yang bervariasi.
+${buildAntiRepetisi(tkaHistory)}
 - PEMERIKSAAN PENGECOH (khusus PG/PGK): setiap pengecoh (opsi salah) harus masuk akal dan mencerminkan miskonsepsi umum siswa jenjang ini, BUKAN opsi asal-asalan yang jelas salah.
 - VALIDASI JAWABAN (WAJIB, sering jadi kesalahan): sebelum menulis bagian D dan E, PERIKSA ULANG setiap soal satu per satu — pastikan isi opsi yang ditandai sebagai jawaban benar di "D. Kunci Jawaban" BENAR-BENAR SAMA PERSIS dengan salah satu opsi yang tertulis di "C. Soal" (bukan opsi lain, bukan hasil menebak/mengarang ulang), dan "E. Pembahasan" menjelaskan opsi yang SAMA dengan kunci tsb. Jika ditemukan ketidaksesuaian saat pemeriksaan ulang, PERBAIKI kunci/pembahasan agar cocok dengan opsi yang benar-benar tertulis, JANGAN biarkan tidak sinkron.
 - DETEKSI KEMIRIPAN: setiap soal harus berbeda signifikan satu sama lain — variasikan konteks, angka, nama, struktur kalimat, DAN strategi/cara penyelesaian — dilarang membuat soal yang terasa duplikat/template yang sama persis.
@@ -787,7 +827,8 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
   };
 
   // gambarMode: 'tidak' (tanpa gambar) | 'gambar' (auto-generate & tampil) | 'deskripsi' (teks prompt saja)
-  const runGeneration = async (promptText, gambarMode) => {
+  // historyMode: 'akm' | 'tka' — menentukan riwayat anti-pengulangan mana yang diperbarui setelah sukses
+  const runGeneration = async (promptText, gambarMode, historyMode) => {
     setError('');
     setIsGenerating(true);
     setLoadingStatus('Menyusun Asesmen...');
@@ -842,6 +883,14 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
       setImageFailures(0);
       setImageError('');
 
+      // Simpan jejak nama/tempat dari hasil ini agar generate berikutnya (mode yang sama) menghindarinya
+      const signature = extractSignature(textContent);
+      if (signature) {
+        const updateHistory = (prev) => [...prev, signature].slice(-6); // simpan 6 generate terakhir saja
+        if (historyMode === 'tka') setTkaHistory(updateHistory);
+        else setAkmHistory(updateHistory);
+      }
+
       // Generate gambar asli (Pollinations) hanya bila mode 'gambar'
       if (gambarMode === 'gambar') {
         const { html, failed, errorMsg } = await processImages(textContent);
@@ -882,7 +931,7 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
       setError('Total persentase Tingkat Kesulitan harus persis 100%.');
       return;
     }
-    await runGeneration(generatePrompt(), formData.sertakanGambar ? 'gambar' : 'tidak');
+    await runGeneration(generatePrompt(), formData.sertakanGambar ? 'gambar' : 'tidak', 'akm');
   };
 
   const handleGenerateTka = async (e) => {
@@ -912,7 +961,7 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
       setError('Total persentase Tingkat Kesulitan harus persis 100%.');
       return;
     }
-    await runGeneration(generateTkaPrompt(), tkaData.modeGambar);
+    await runGeneration(generateTkaPrompt(), tkaData.modeGambar, 'tka');
   };
 
   // Ubah <svg> (grafik) jadi gambar PNG data URL agar bisa tampil di Word
