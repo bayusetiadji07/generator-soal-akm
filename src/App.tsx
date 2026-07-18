@@ -109,11 +109,9 @@ const TKA_MATERI_KATEGORI = {
   },
   'Bahasa Indonesia': {
     SD: [
-      { id: 'cerita', label: 'Teks Cerita/Narasi', submateri: ['Cerita rakyat', 'Fabel', 'Cerita anak'] },
-      { id: 'informasi', label: 'Teks Informasi', submateri: ['Teks informasi umum', 'Teks laporan sederhana'] },
-      { id: 'petunjuk', label: 'Teks Petunjuk/Prosedur', submateri: ['Petunjuk penggunaan', 'Petunjuk membuat sesuatu'] },
-      { id: 'pengumuman', label: 'Teks Pengumuman', submateri: ['Pengumuman sekolah', 'Pengumuman umum'] },
-      { id: 'biografi', label: 'Biografi Sederhana', submateri: ['Tokoh terkenal', 'Tokoh sejarah'] },
+      { id: 'teks_informasi', label: '1. Teks Informasi', submateri: ['Laporan', 'Berita', 'Artikel sederhana'] },
+      { id: 'teks_sastra', label: '2. Teks Sastra', submateri: ['Cerita rakyat', 'Dongeng', 'Fabel', 'Legenda', 'Puisi'] },
+      { id: 'teks_praktis', label: '3. Teks Praktis', submateri: ['Iklan', 'Pengumuman', 'Poster', 'Petunjuk'] },
     ],
     SMP: [
       { id: 'artikel', label: 'Artikel', submateri: ['Artikel opini', 'Artikel populer'] },
@@ -126,14 +124,10 @@ const TKA_MATERI_KATEGORI = {
   },
   'Bahasa Inggris': {
     SD: [
-      { id: 'announcement', label: 'Announcement', submateri: ['School announcement', 'Public announcement'] },
-      { id: 'notice', label: 'Notice', submateri: ['Warning notice', 'Information notice'] },
-      { id: 'greeting_card', label: 'Greeting Card', submateri: ['Birthday card', 'Holiday card'] },
-      { id: 'short_message', label: 'Short Message', submateri: ['Text message', 'Note'] },
-      { id: 'procedure', label: 'Procedure', submateri: ['How to make/do something'] },
-      { id: 'narrative', label: 'Narrative', submateri: ['Fable', 'Folktale'] },
-      { id: 'descriptive', label: 'Descriptive', submateri: ['Describing people/places/animals'] },
-      { id: 'recount', label: 'Recount', submateri: ['Personal experience', 'Past event'] },
+      { id: 'vocabulary', label: '1. Vocabulary', submateri: ['School', 'Family', 'Hobby', 'Occupation', 'Food', 'Animals', 'Transportation', 'Weather', 'Time'] },
+      { id: 'reading', label: '2. Reading', submateri: ['Descriptive text', 'Short announcement', 'Dialogue', 'Invitation', 'Notice', 'Advertisement'] },
+      { id: 'grammar', label: '3. Grammar', submateri: ['Simple present', 'Pronoun', 'Adjective', 'Preposition', 'Article', 'Question word'] },
+      { id: 'functional_text', label: '4. Functional Text', submateri: ['Greeting', 'Thanking', 'Apologizing', 'Asking permission', 'Introducing'] },
     ],
     SMP: [
       { id: 'report', label: 'Report', submateri: ['Report on animals/plants/phenomena'] },
@@ -149,13 +143,12 @@ const TKA_MATERI_KATEGORI = {
   },
   IPA: {
     SD: [
-      { id: 'makhluk_hidup', label: 'Makhluk Hidup', submateri: ['Ciri makhluk hidup', 'Daur hidup hewan', 'Bagian tumbuhan'] },
-      { id: 'energi', label: 'Energi', submateri: ['Sumber energi', 'Perubahan bentuk energi'] },
-      { id: 'gaya', label: 'Gaya', submateri: ['Jenis gaya', 'Pengaruh gaya terhadap benda'] },
-      { id: 'cahaya_bunyi', label: 'Cahaya dan Bunyi', submateri: ['Sifat cahaya', 'Sifat bunyi'] },
-      { id: 'bumi_antariksa', label: 'Bumi dan Antariksa', submateri: ['Rotasi dan revolusi', 'Sistem tata surya sederhana'] },
-      { id: 'lingkungan', label: 'Lingkungan', submateri: ['Ekosistem sederhana', 'Pelestarian lingkungan'] },
-      { id: 'perubahan_wujud', label: 'Perubahan Wujud Benda', submateri: ['Mencair, membeku, menguap, mengembun'] },
+      { id: 'makhluk_hidup', label: '1. Makhluk Hidup', submateri: ['Ciri makhluk hidup', 'Klasifikasi sederhana', 'Rantai makanan', 'Ekosistem', 'Adaptasi'] },
+      { id: 'tubuh_manusia', label: '2. Tubuh Manusia', submateri: ['Organ', 'Pancaindra', 'Pernapasan', 'Pencernaan', 'Peredaran darah'] },
+      { id: 'energi', label: '3. Energi', submateri: ['Bentuk energi', 'Perubahan energi', 'Listrik', 'Magnet', 'Panas'] },
+      { id: 'bumi_antariksa', label: '4. Bumi dan Antariksa', submateri: ['Tata surya', 'Rotasi', 'Revolusi', 'Musim', 'Cuaca'] },
+      { id: 'materi', label: '5. Materi', submateri: ['Sifat benda', 'Perubahan wujud', 'Campuran', 'Gaya'] },
+      { id: 'lingkungan', label: '6. Lingkungan', submateri: ['Pencemaran', 'Daur air', 'Pelestarian alam', 'Perubahan lingkungan'] },
     ],
     SMP: [
       { id: 'sistem_organ', label: 'Sistem Organ', submateri: ['Sistem pencernaan, pernapasan, peredaran darah, gerak'] },
