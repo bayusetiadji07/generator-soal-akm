@@ -224,14 +224,22 @@ export default function App() {
   const [isReloadingImages, setIsReloadingImages] = useState(false);
   const [imageFailures, setImageFailures] = useState(0);
   const [imageError, setImageError] = useState('');
-  const [apiKey, setApiKey] = useState(() => {
+  // Provider AI teks: 'gemini' (default, dukung upload gambar/vision) atau 'deepseek' (cadangan, teks saja)
+  const [aiProvider, setAiProvider] = useState(() => {
+    try { return localStorage.getItem('ai_provider') || 'gemini'; } catch { return 'gemini'; }
+  });
+  const [geminiApiKey, setGeminiApiKey] = useState(() => {
     try { return localStorage.getItem('gemini_api_key') || ''; } catch { return ''; }
   });
-  // 'bawaan' = pakai GEMINI_API_KEY di server Vercel (harus diset sendiri di sana); 'custom' = pakai key yang diinput manual
+  const [deepseekApiKey, setDeepseekApiKey] = useState(() => {
+    try { return localStorage.getItem('deepseek_api_key') || ''; } catch { return ''; }
+  });
+  // 'bawaan' = pakai API key server (env Vercel, harus diset sendiri di sana); 'custom' = key yang diinput manual
   const [apiKeySource, setApiKeySource] = useState(() => {
     try { return localStorage.getItem('gemini_api_key_source') || 'custom'; } catch { return 'custom'; }
   });
   const [showKey, setShowKey] = useState(false);
+  const apiKey = aiProvider === 'deepseek' ? deepseekApiKey : geminiApiKey;
   const [uploadedImages, setUploadedImages] = useState([]); // { id, soalNo, dataUrl }
   const resultRef = useRef(null);
 
@@ -247,13 +255,23 @@ export default function App() {
 
   const handleApiKeyChange = (e) => {
     const v = e.target.value.trim();
-    setApiKey(v);
-    try { localStorage.setItem('gemini_api_key', v); } catch { /* abaikan */ }
+    if (aiProvider === 'deepseek') {
+      setDeepseekApiKey(v);
+      try { localStorage.setItem('deepseek_api_key', v); } catch { /* abaikan */ }
+    } else {
+      setGeminiApiKey(v);
+      try { localStorage.setItem('gemini_api_key', v); } catch { /* abaikan */ }
+    }
   };
 
   const handleApiKeySourceChange = (src) => {
     setApiKeySource(src);
     try { localStorage.setItem('gemini_api_key_source', src); } catch { /* abaikan */ }
+  };
+
+  const handleAiProviderChange = (provider) => {
+    setAiProvider(provider);
+    try { localStorage.setItem('ai_provider', provider); } catch { /* abaikan */ }
   };
 
   // Upload gambar soal manual (stimulus untuk nomor tertentu)
@@ -594,7 +612,8 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     const delays = [1000, 2000, 4000, 8000, 16000];
     for (let i = 0; i < retries; i++) {
       try {
-        const response = await fetch('/api/generate', {
+        const endpoint = aiProvider === 'deepseek' ? '/api/generate-deepseek' : '/api/generate';
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -843,7 +862,11 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
   const handleGenerateAkm = async (e) => {
     e.preventDefault();
     if (apiKeySource === 'custom' && !apiKey) {
-      setError('API Key Gemini belum diisi. Masukkan API Key Anda di kolom paling atas, atau pilih "API Key Bawaan" (dapatkan gratis di aistudio.google.com/app/apikey).');
+      setError(`API Key ${aiProvider === 'deepseek' ? 'DeepSeek' : 'Gemini'} belum diisi. Masukkan API Key Anda di kolom paling atas, atau pilih "API Key Bawaan".`);
+      return;
+    }
+    if (aiProvider === 'deepseek' && uploadedImages.length > 0) {
+      setError('DeepSeek tidak mendukung analisis gambar. Hapus gambar yang diupload, atau ganti provider ke Gemini di kolom paling atas.');
       return;
     }
     if (!formData.mataPelajaran || !formData.materi) {
@@ -865,7 +888,11 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
   const handleGenerateTka = async (e) => {
     e.preventDefault();
     if (apiKeySource === 'custom' && !apiKey) {
-      setError('API Key Gemini belum diisi. Masukkan API Key Anda di kolom paling atas, atau pilih "API Key Bawaan" (dapatkan gratis di aistudio.google.com/app/apikey).');
+      setError(`API Key ${aiProvider === 'deepseek' ? 'DeepSeek' : 'Gemini'} belum diisi. Masukkan API Key Anda di kolom paling atas, atau pilih "API Key Bawaan".`);
+      return;
+    }
+    if (aiProvider === 'deepseek' && uploadedImages.length > 0) {
+      setError('DeepSeek tidak mendukung analisis gambar. Hapus gambar yang diupload, atau ganti provider ke Gemini di kolom paling atas.');
       return;
     }
     if (tkaData.materiKategori.length === 0) {
@@ -1459,7 +1486,36 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
 
         {mode !== null && (
           <div className={`rounded-xl border p-3 bg-white shadow-sm ${apiKeySource === 'custom' && !apiKey ? 'border-amber-300 bg-amber-50' : 'border-gray-200'}`}>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Sumber API Key Gemini</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Provider AI (Teks)</label>
+            <div className="flex gap-4 mb-3">
+              <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="aiProviderRadio"
+                  checked={aiProvider === 'gemini'}
+                  onChange={() => handleAiProviderChange('gemini')}
+                  className="text-blue-600 focus:ring-blue-500"
+                />
+                Gemini (utama, dukung upload gambar)
+              </label>
+              <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="aiProviderRadio"
+                  checked={aiProvider === 'deepseek'}
+                  onChange={() => handleAiProviderChange('deepseek')}
+                  className="text-blue-600 focus:ring-blue-500"
+                />
+                DeepSeek (cadangan, teks saja)
+              </label>
+            </div>
+            {aiProvider === 'deepseek' && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mb-3">
+                ⚠️ DeepSeek tidak bisa menganalisis gambar — fitur <b>Upload Gambar Soal</b> tidak akan berfungsi selama provider ini dipilih. Batas keluaran juga lebih pendek dari Gemini (cocok untuk ±10-15 soal per generate).
+              </p>
+            )}
+
+            <label className="block text-sm font-medium text-gray-700 mb-2">Sumber API Key {aiProvider === 'deepseek' ? 'DeepSeek' : 'Gemini'}</label>
             <div className="flex gap-4 mb-2">
               <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
                 <input
@@ -1485,7 +1541,7 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
 
             {apiKeySource === 'bawaan' ? (
               <p className="text-xs text-gray-500">
-                Memakai key yang diset di server (env var <code className="bg-gray-100 px-1 rounded">GEMINI_API_KEY</code> pada Vercel). Jika belum diset, generate akan gagal — set dulu di Vercel → Settings → Environment Variables, lalu redeploy.
+                Memakai key yang diset di server (env var <code className="bg-gray-100 px-1 rounded">{aiProvider === 'deepseek' ? 'DEEPSEEK_API_KEY' : 'GEMINI_API_KEY'}</code> pada Vercel). Jika belum diset, generate akan gagal — set dulu di Vercel → Settings → Environment Variables, lalu redeploy.
               </p>
             ) : (
               <>
@@ -1494,7 +1550,7 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
                     type={showKey ? 'text' : 'password'}
                     value={apiKey}
                     onChange={handleApiKeyChange}
-                    placeholder="Tempel API Key Gemini Anda di sini"
+                    placeholder={`Tempel API Key ${aiProvider === 'deepseek' ? 'DeepSeek' : 'Gemini'} Anda di sini`}
                     autoComplete="off"
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                   />
@@ -1508,8 +1564,11 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
                   {!apiKey && <span className="text-amber-600 font-medium">(wajib diisi) </span>}
-                  Tersimpan di browser Anda (tidak dibagikan). Dapatkan gratis di{' '}
-                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-600 underline">aistudio.google.com/app/apikey</a>.
+                  Tersimpan di browser Anda (tidak dibagikan). Dapatkan {aiProvider === 'deepseek' ? (
+                    <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer" className="text-blue-600 underline">di platform.deepseek.com/api_keys</a>
+                  ) : (
+                    <>gratis di{' '}<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-600 underline">aistudio.google.com/app/apikey</a></>
+                  )}.
                 </p>
               </>
             )}
