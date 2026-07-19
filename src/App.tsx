@@ -1,4 +1,8 @@
 import { useState, useRef } from 'react';
+import { parseSoalDariHtml, type SoalParsed } from './cbtParser';
+import { buildCbtHtml } from './cbtTemplate';
+
+declare const mammoth: any;
 
 // Pemetaan Fase Kurikulum Merdeka → jenjang & pilihan kelas
 const FASE = {
@@ -247,7 +251,22 @@ export default function App() {
   const [tkaHistory, setTkaHistory] = useState([]);
   const resultRef = useRef(null);
 
-  // Pindah antar generator (AKM/TKA) — reset hasil & lampiran, API key tetap tersimpan
+  // ===== State mode "Generator CBT" (upload naskah Word -> aplikasi ujian CBT HTML) =====
+  const [cbtFileName, setCbtFileName] = useState('');
+  const [cbtSoal, setCbtSoal] = useState<SoalParsed[]>([]);
+  const [cbtParseMsg, setCbtParseMsg] = useState<{ type: 'ok' | 'bad' | 'warn'; text: string } | null>(null);
+  const [cbtDragActive, setCbtDragActive] = useState(false);
+  const [cbtGenMsg, setCbtGenMsg] = useState('');
+  const [cbtConfig, setCbtConfig] = useState({
+    judul: '',
+    instansi: '',
+    durasiMenit: 60,
+    acakSoal: true,
+    acakOpsi: true,
+    scriptUrl: '',
+  });
+
+  // Pindah antar generator (AKM/TKA/CBT) — reset hasil & lampiran, API key tetap tersimpan
   const switchMode = (newMode) => {
     setMode(newMode);
     setGeneratedHtml('');
@@ -255,6 +274,69 @@ export default function App() {
     setImageFailures(0);
     setImageError('');
     setUploadedImages([]);
+    setCbtFileName('');
+    setCbtSoal([]);
+    setCbtParseMsg(null);
+    setCbtGenMsg('');
+  };
+
+  // ===== Handler mode "Generator CBT" =====
+  const handleCbtFile = (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.docx')) {
+      setCbtParseMsg({ type: 'bad', text: 'File harus berformat .docx' });
+      return;
+    }
+    setCbtFileName(file.name);
+    setCbtGenMsg('');
+    setCbtParseMsg({ type: 'warn', text: 'Memproses file...' });
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      mammoth
+        .convertToHtml({ arrayBuffer: (e.target as FileReader).result })
+        .then((result: { value: string }) => {
+          const soal = parseSoalDariHtml(result.value);
+          setCbtSoal(soal);
+          if (soal.length === 0) {
+            setCbtParseMsg({ type: 'bad', text: 'Tidak ada soal terdeteksi. Pastikan format penanda "1. [PG] ..." dst sudah sesuai contoh.' });
+            return;
+          }
+          const invalid = soal.filter((s) => !s.valid).length;
+          setCbtParseMsg(
+            invalid
+              ? { type: 'warn', text: `${soal.length} soal terdeteksi, ${invalid} bermasalah (lihat tanda merah di pratinjau).` }
+              : { type: 'ok', text: `${soal.length} soal terdeteksi, semua valid.` }
+          );
+        })
+        .catch((err: Error) => {
+          setCbtParseMsg({ type: 'bad', text: `Gagal membaca file: ${err.message}` });
+        });
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleCbtDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setCbtDragActive(false);
+    if (e.dataTransfer.files.length) handleCbtFile(e.dataTransfer.files[0]);
+  };
+
+  const handleCbtConfigChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setCbtConfig((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleCbtGenerate = () => {
+    const html = buildCbtHtml(
+      { ...cbtConfig, judul: cbtConfig.judul.trim() || 'Ujian CBT' },
+      cbtSoal
+    );
+    const blob = new Blob([html], { type: 'text/html' });
+    const safeName = (cbtConfig.judul.trim() || 'CBT').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `cbt-${safeName}.html`;
+    a.click();
+    setCbtGenMsg(`File cbt-${safeName}.html berhasil diunduh. Bagikan file ini ke siswa untuk dikerjakan.`);
   };
 
   const handleApiKeyChange = (e) => {
@@ -1505,20 +1587,228 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     </div>
   );
 
+  const cbtFormPanel = (
+    <div className="lg:col-span-4 space-y-6">
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">1. Upload Naskah Soal (.docx)</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          Soal harus ditulis mengikuti format penanda.{' '}
+          <a href="/template-soal-cbt.docx" className="text-emerald-600 underline">Unduh contoh template Word</a> supaya formatnya pasti terbaca benar.
+        </p>
+
+        <label
+          className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-xl px-4 py-8 text-center cursor-pointer transition-all ${
+            cbtDragActive ? 'border-emerald-500 bg-emerald-50' : 'border-gray-300 bg-gray-50 hover:border-emerald-400 hover:bg-emerald-50'
+          }`}
+          onDragOver={(e) => { e.preventDefault(); setCbtDragActive(true); }}
+          onDragLeave={() => setCbtDragActive(false)}
+          onDrop={handleCbtDrop}
+        >
+          <input
+            type="file"
+            accept=".docx"
+            className="hidden"
+            onChange={(e) => { if (e.target.files?.length) handleCbtFile(e.target.files[0]); }}
+          />
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 mb-2">
+            <path d="M12 15V3M12 15L8.5 11.5M12 15L15.5 11.5" />
+            <path d="M4 15V18.5C4 19.8807 5.11929 21 6.5 21H17.5C18.8807 21 20 19.8807 20 18.5V15" />
+          </svg>
+          <div className="text-sm font-semibold text-gray-800">Klik atau seret file .docx ke sini</div>
+          <div className="text-xs text-gray-500 mt-1">Format Word (.docx) — maks. 1 file</div>
+          {cbtFileName && <div className="text-xs font-semibold text-emerald-700 mt-2">{cbtFileName}</div>}
+        </label>
+
+        {cbtParseMsg && (
+          <div
+            className={`text-sm mt-3 px-3 py-2 rounded-xl border font-medium ${
+              cbtParseMsg.type === 'ok'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : cbtParseMsg.type === 'bad'
+                ? 'bg-red-50 text-red-700 border-red-200'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}
+          >
+            {cbtParseMsg.text}
+          </div>
+        )}
+
+        <details className="mt-3">
+          <summary className="text-sm font-semibold text-emerald-700 cursor-pointer">Lihat format penanda yang dikenali</summary>
+          <pre className="bg-gray-900 text-gray-100 text-xs rounded-lg p-3 mt-2 overflow-x-auto whitespace-pre-wrap">{`1. [PG] Ibu kota Indonesia adalah ...
+A. Bandung
+*B. Jakarta
+C. Surabaya
+D. Medan
+Pembahasan: Jakarta adalah ibu kota Indonesia.
+
+2. [PGK] Berikut ini bilangan prima adalah ...
+*A. 2
+B. 4
+*C. 5
+D. 6
+
+3. [ISIAN] Hasil dari 12 x 12 adalah ...
+Kunci: 144
+
+4. [ESSAY] Jelaskan proses terjadinya hujan!`}</pre>
+          <p className="text-xs text-gray-500 mt-2">
+            Tanda "*" di depan huruf opsi menandai jawaban benar. "Kunci:" untuk isian bisa punya beberapa jawaban diterima, dipisah "|". "Pembahasan:" opsional. Gambar yang disisipkan di Word ikut terbawa otomatis. ESSAY dinilai manual oleh guru (tidak masuk skor otomatis).
+          </p>
+        </details>
+      </div>
+
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">2. Pengaturan Ujian</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Judul Ujian</label>
+            <input
+              type="text"
+              name="judul"
+              value={cbtConfig.judul}
+              onChange={handleCbtConfigChange}
+              placeholder="Ulangan Harian IPA — Bab 3"
+              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Durasi (menit)</label>
+              <input
+                type="number"
+                name="durasiMenit"
+                min="1"
+                value={cbtConfig.durasiMenit}
+                onChange={handleCbtConfigChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sekolah/Guru (opsional)</label>
+              <input
+                type="text"
+                name="instansi"
+                value={cbtConfig.instansi}
+                onChange={handleCbtConfigChange}
+                placeholder="SDN Contoh 01"
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" name="acakSoal" checked={cbtConfig.acakSoal} onChange={handleCbtConfigChange} className="rounded text-emerald-600 focus:ring-emerald-500" />
+            Acak urutan soal untuk tiap siswa
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" name="acakOpsi" checked={cbtConfig.acakOpsi} onChange={handleCbtConfigChange} className="rounded text-emerald-600 focus:ring-emerald-500" />
+            Acak urutan opsi jawaban (PG/PGK)
+          </label>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">URL Google Apps Script (opsional)</label>
+            <input
+              type="url"
+              name="scriptUrl"
+              value={cbtConfig.scriptUrl}
+              onChange={handleCbtConfigChange}
+              placeholder="https://script.google.com/macros/s/xxx/exec"
+              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Untuk simpan hasil siswa otomatis ke Google Sheet. Kosongkan jika belum ada — siswa tetap bisa unduh bukti hasil manual. Lihat{' '}
+              <a href="/cbt-apps-script.gs.txt" className="text-emerald-600 underline">kode backend</a> & panduan pemasangannya.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">3. Generate Aplikasi CBT</h2>
+        <p className="text-xs text-gray-500 mb-3">File HTML hasil generate bersifat mandiri (satu file, offline) — tinggal dibagikan/diunggah untuk dikerjakan siswa.</p>
+        <button
+          type="button"
+          onClick={handleCbtGenerate}
+          disabled={cbtSoal.filter((s) => s.valid).length === 0}
+          className={`w-full py-3 rounded-xl font-medium text-white transition-all flex items-center justify-center gap-2 ${
+            cbtSoal.filter((s) => s.valid).length === 0 ? 'bg-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 shadow-md hover:shadow-lg'
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3V15M12 15L8.5 11.5M12 15L15.5 11.5" />
+            <path d="M4 17V18.5C4 19.8807 5.11929 21 6.5 21H17.5C18.8807 21 20 19.8807 20 18.5V17" />
+          </svg>
+          Generate & Unduh CBT.html
+        </button>
+        {cbtGenMsg && (
+          <div className="text-sm mt-3 px-3 py-2 rounded-xl border font-medium bg-emerald-50 text-emerald-700 border-emerald-200">{cbtGenMsg}</div>
+        )}
+      </div>
+    </div>
+  );
+
+  const cbtPreviewPanel = (
+    <div className="lg:col-span-8 flex flex-col">
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex-1 flex flex-col">
+        <div className="flex justify-between items-center mb-4 border-b pb-2">
+          <h2 className="text-lg font-semibold text-gray-900">Pratinjau Soal Terparsing</h2>
+          {cbtSoal.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(
+                cbtSoal.reduce((acc: Record<string, number>, s) => { acc[s.tipe] = (acc[s.tipe] || 0) + 1; return acc; }, {})
+              ).map(([tipe, n]) => (
+                <span key={tipe} className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">{tipe} &times; {n}</span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {cbtSoal.length === 0 ? (
+          <p className="text-sm text-gray-500">Belum ada file diupload.</p>
+        ) : (
+          <div className="space-y-2 max-h-[640px] overflow-y-auto pr-1">
+            {cbtSoal.map((s, i) => (
+              <div key={i} className="border border-gray-200 rounded-xl p-4 text-sm bg-gray-50">
+                <div className="flex justify-between items-center mb-2">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.valid ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                    #{i + 1} &middot; {s.tipe}
+                  </span>
+                </div>
+                <div className="text-gray-800 mb-1.5">{s.tanya}</div>
+                {(s.tipe === 'PG' || s.tipe === 'PGK') && (
+                  <div className="space-y-0.5">
+                    {s.opsi.map((o, idx) => (
+                      <div key={idx} className={o.benar ? 'text-emerald-700 font-semibold pl-3' : 'text-gray-500 pl-3'}>
+                        {String.fromCharCode(65 + idx)}. {o.teks}{o.benar ? ' ✓' : ''}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {s.tipe === 'ISIAN' && (
+                  <div className="text-emerald-700 font-semibold text-xs">Kunci: {s.kunciIsian.join(' | ')}</div>
+                )}
+                {s.tipe === 'ESSAY' && <div className="text-gray-500 text-xs">Dinilai manual oleh guru</div>}
+                {!s.valid && <div className="text-red-600 text-xs mt-1 font-medium">{s.errors.join(' ')}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
 
         {/* Header */}
         <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-600 text-white rounded-xl flex items-center justify-center font-bold text-2xl shadow-inner">
-            {mode === 'tka' ? 'T' : mode === 'akm' ? 'A' : 'Q'}
-          </div>
+          <img src="/logo-si-gatot.png" alt="Si Gatot" className="w-14 h-14 rounded-full shadow-inner object-cover flex-none" />
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900">Generator Question Test Engine</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Si Gatot <span className="text-gray-400 font-medium text-base">— Sistem Generator Tes Otomatis</span></h1>
             <p className="text-gray-500 text-sm">
               {mode === 'akm' && 'Generator AKM — Literasi Numerasi, Kurikulum Merdeka semua Fase (A–F)'}
               {mode === 'tka' && 'Generator TKA — Tes Kemampuan Akademik, jenjang SD & SMP'}
+              {mode === 'cbt' && 'Generator CBT — Upload naskah soal Word, jadi aplikasi ujian CBT HTML siap pakai'}
               {mode === null && 'Pilih jenis generator soal di bawah untuk mulai'}
             </p>
           </div>
@@ -1533,7 +1823,7 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
           )}
         </div>
 
-        {mode !== null && (
+        {(mode === 'akm' || mode === 'tka') && (
           <div className={`rounded-xl border p-3 bg-white shadow-sm ${apiKeySource === 'custom' && !apiKey ? 'border-amber-300 bg-amber-50' : 'border-gray-200'}`}>
             <label className="block text-sm font-medium text-gray-700 mb-2">Provider AI (Teks)</label>
             <div className="flex gap-4 mb-3">
@@ -1625,7 +1915,7 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
         )}
 
         {mode === null && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <button
               type="button"
               onClick={() => switchMode('akm')}
@@ -1643,6 +1933,15 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
               <div className="w-12 h-12 bg-purple-600 text-white rounded-xl flex items-center justify-center font-bold text-xl mb-3">T</div>
               <h3 className="text-lg font-semibold text-gray-900">Generator TKA</h3>
               <p className="text-sm text-gray-500 mt-1">Soal Tes Kemampuan Akademik (TKA Assessment Engine) — Matematika, Bahasa Indonesia, Bahasa Inggris, IPA — jenjang SD & SMP, berbasis kerangka domain kompetensi & Bank Konteks.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode('cbt')}
+              className="text-left bg-white rounded-2xl p-6 shadow-sm border-2 border-gray-100 hover:border-emerald-400 hover:shadow-md transition-all"
+            >
+              <div className="w-12 h-12 bg-emerald-600 text-white rounded-xl flex items-center justify-center font-bold text-xl mb-3">C</div>
+              <h3 className="text-lg font-semibold text-gray-900">Generator CBT</h3>
+              <p className="text-sm text-gray-500 mt-1">Sudah punya naskah soal di Word? Upload di sini, langsung jadi aplikasi ujian CBT HTML siap dikerjakan siswa — tanpa AI, tanpa server.</p>
             </button>
           </div>
         )}
@@ -1957,6 +2256,13 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {tkaFormPanel}
           {previewPanel}
+        </div>
+        )}
+
+        {mode === 'cbt' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {cbtFormPanel}
+          {cbtPreviewPanel}
         </div>
         )}
 

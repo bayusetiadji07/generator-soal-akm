@@ -1,0 +1,32 @@
+// ===================== Backend Google Apps Script — Simpan Hasil CBT =====================
+// Cara pasang: lihat PETUNJUK-PENGGUNAAN.md di root proyek ini.
+
+function doPost(e) {
+  var data = JSON.parse(e.postData.contents);
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Hasil') || createSheet_();
+
+  sheet.appendRow([
+    new Date(),
+    data.nama || '',
+    data.sekolah || '',
+    data.judul || '',
+    data.nilai != null ? data.nilai : '',
+    data.waktuHabis ? 'Ya' : 'Tidak',
+    data.essay && data.essay.length ? JSON.stringify(data.essay) : ''
+  ]);
+
+  return ContentService.createTextOutput(JSON.stringify({ status: 'ok' })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function createSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.insertSheet('Hasil');
+  sheet.appendRow(['Waktu Kirim', 'Nama', 'Sekolah', 'Judul Ujian', 'Nilai', 'Waktu Habis', 'Jawaban Essay (JSON)']);
+  sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
+  return sheet;
+}
+
+// Fungsi tes manual (jalankan dari editor Apps Script utk memastikan sheet 'Hasil' terbentuk)
+function testSetup() {
+  createSheet_();
+}
