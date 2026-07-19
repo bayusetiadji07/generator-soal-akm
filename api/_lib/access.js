@@ -18,23 +18,31 @@ export function normalizeCode(code) {
 
 export async function findAccessCode(codeNorm) {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { error: 'no_service_key' }
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/sigatot_access_codes?code=eq.${encodeURIComponent(codeNorm)}&select=*`,
-    { headers: headers() }
-  )
-  if (!res.ok) return { error: 'fetch_failed' }
-  const rows = await res.json()
-  return { row: Array.isArray(rows) && rows.length ? rows[0] : null }
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/sigatot_access_codes?code=eq.${encodeURIComponent(codeNorm)}&select=*`,
+      { headers: headers() }
+    )
+    if (!res.ok) return { error: `fetch_failed_${res.status}` }
+    const rows = await res.json()
+    return { row: Array.isArray(rows) && rows.length ? rows[0] : null }
+  } catch (err) {
+    return { error: `network_error: ${err?.message || err}` }
+  }
 }
 
 export async function patchAccessCode(codeNorm, patch) {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/sigatot_access_codes?code=eq.${encodeURIComponent(codeNorm)}`,
-    { method: 'PATCH', headers: { ...headers(), Prefer: 'return=representation' }, body: JSON.stringify(patch) }
-  )
-  if (!res.ok) return null
-  const rows = await res.json()
-  return Array.isArray(rows) && rows.length ? rows[0] : null
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/sigatot_access_codes?code=eq.${encodeURIComponent(codeNorm)}`,
+      { method: 'PATCH', headers: { ...headers(), Prefer: 'return=representation' }, body: JSON.stringify(patch) }
+    )
+    if (!res.ok) return null
+    const rows = await res.json()
+    return Array.isArray(rows) && rows.length ? rows[0] : null
+  } catch {
+    return null
+  }
 }
 
 // Dipakai generate.js/generate-deepseek.js: kembalikan {ok:true} kalau kode+deviceToken valid & aktif,
