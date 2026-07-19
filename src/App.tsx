@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { parseSoalDariHtml, type SoalParsed } from './cbtParser';
 import { buildCbtHtml } from './cbtTemplate';
-import { Document, Packer, Paragraph } from 'docx';
+import { Document, Packer, Paragraph, ImageRun } from 'docx';
 
 declare const mammoth: any;
 
@@ -174,7 +174,8 @@ const CBT_EXPORT_PROMPT_BLOCK = `<h2>F. Data Ekspor CBT (WAJIB ADA, JANGAN DIEDI
 
 ATURAN WAJIB isi blok ini:
 - HANYA sertakan soal berbentuk Pilihan Ganda (PG), Pilihan Ganda Kompleks (PGK), Isian Singkat, dan Uraian. LEWATI/JANGAN sertakan soal Benar-Salah maupun Menjodohkan (tidak didukung sistem CBT).
-- Nomori ulang soal berurutan mulai dari 1 KHUSUS untuk soal yang disertakan di blok ini (boleh berbeda dari nomor di bagian C bila ada Benar-Salah/Menjodohkan yang dilewati).
+- WAJIB gunakan PERSIS nomor soal YANG SAMA seperti di bagian C untuk tiap soal (JANGAN dinomori ulang) — sistem butuh nomor ini untuk mencocokkan & menyalin otomatis gambar/grafik dari bagian C ke soal yang sama di sini. Boleh ada lompatan nomor (mis. 1, 3, 4) bila ada soal Benar-Salah/Menjodohkan yang dilewati — itu wajar dan tidak masalah.
+- JANGAN gambarkan/deskripsikan ulang gambar ilustrasi atau grafik/SVG apapun di blok ini walau soal tersebut punya gambar di bagian C — sistem akan MENYALIN OTOMATIS gambar itu berdasarkan kecocokan nomor soal, cukup tulis teks soal & jawabannya saja.
 - Setiap soal WAJIB diawali baris persis: "N. [TIPE] teks soal" — TIPE salah satu dari PG, PGK, ISIAN, ESSAY (Uraian ditulis sebagai ESSAY).
 - PG: tulis semua opsi, satu opsi per baris "A. teks", "B. teks", dst. Beri tanda bintang "*" PERSIS di depan huruf opsi yang benar (mis. "*B. Jakarta") — WAJIB SAMA PERSIS dengan kunci di bagian D. Hanya SATU opsi bertanda bintang.
 - PGK: sama seperti PG, tapi BOLEH LEBIH DARI SATU opsi bertanda bintang "*" (harus konsisten dengan bagian D).
@@ -1145,6 +1146,63 @@ PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan
     });
   };
 
+  // Kumpulkan gambar (<img>) & grafik (<svg>) dari bagian "C. Soal", dikelompokkan per nomor soal —
+  // dipakai fitur "Ekspor Word (Format CBT)" utk menyalin otomatis gambar ke soal yang sama tanpa
+  // perlu AI menuliskan ulang gambar dalam bentuk teks (yang memang mustahil).
+  const extractImagesBySoalNumber = (html) => {
+    const d = new DOMParser().parseFromString(html, 'text/html');
+    const headings = Array.from(d.querySelectorAll('h2'));
+    const startH = headings.find((h) => /C\.\s*Soal/i.test(h.textContent || ''));
+    if (!startH) return {};
+    const collectMedia = (node) => {
+      const out = [];
+      const tag = (node.tagName || '').toLowerCase();
+      if (tag === 'img') out.push({ type: 'img', src: node.getAttribute('src') || '' });
+      else if (tag === 'svg') out.push({ type: 'svg', el: node });
+      else {
+        node.querySelectorAll?.('img').forEach((im) => out.push({ type: 'img', src: im.getAttribute('src') || '' }));
+        node.querySelectorAll?.('svg').forEach((sv) => out.push({ type: 'svg', el: sv }));
+      }
+      return out;
+    };
+    const map = {};
+    let currentNum = null;
+    let node = startH.nextElementSibling;
+    while (node && node.tagName !== 'H2') {
+      const text = (node.textContent || '').trim();
+      const m = text.match(/^(\d+)[.)]/);
+      if (m) currentNum = parseInt(m[1], 10);
+      if (currentNum != null) {
+        const media = collectMedia(node);
+        if (media.length) {
+          if (!map[currentNum]) map[currentNum] = [];
+          map[currentNum].push(...media);
+        }
+      }
+      node = node.nextElementSibling;
+    }
+    return map;
+  };
+
+  // Ubah data URL gambar (base64) jadi bytes mentah utk ImageRun (docx)
+  const dataUrlToImageBytes = (dataUrl) => {
+    const m = /^data:image\/(png|jpe?g);base64,([\s\S]+)$/i.exec(dataUrl || '');
+    if (!m) return null;
+    const type = /jpe?g/i.test(m[1]) ? 'jpg' : 'png';
+    const bin = atob(m[2].replace(/\s+/g, ''));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { bytes, type };
+  };
+
+  // Ukuran asli gambar (dari data URL) — dipakai utk skala proporsional saat ditanam di docx
+  const getImageDimensions = (dataUrl) => new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth || 400, height: img.naturalHeight || 300 });
+    img.onerror = () => resolve({ width: 400, height: 300 });
+    img.src = dataUrl;
+  });
+
   const exportToWord = async () => {
     if (!generatedHtml) return;
 
@@ -1229,6 +1287,42 @@ PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan
   const handleExportCbtWord = async () => {
     if (!cbtExportText) return;
     const lines = cbtExportText.split('\n');
+    const RX_SOAL_START_LOCAL = /^(\d+)[.)]\s*\[(PG|PGK|ISIAN|ESSAY)\]\s*(.*)$/i;
+
+    // Cocokkan gambar/grafik dari bagian C. Soal ke tiap soal (berdasar nomor asli yg sama)
+    const imagesByNum = extractImagesBySoalNumber(generatedHtml);
+
+    // Susun paragraf docx: tiap baris teks jadi 1 paragraf; tepat setelah baris "N. [TIPE] ..."
+    // sisipkan gambar/grafik milik nomor soal itu (kalau ada), sebelum baris opsi/kunci berikutnya.
+    const children = [];
+    for (const line of lines) {
+      children.push(new Paragraph(line));
+      const m = line.match(RX_SOAL_START_LOCAL);
+      if (!m) continue;
+      const soalNum = parseInt(m[1], 10);
+      const media = imagesByNum[soalNum] || [];
+      for (const item of media) {
+        let dataUrl = null;
+        if (item.type === 'img') dataUrl = item.src;
+        else if (item.type === 'svg') {
+          const res = await svgToPng(item.el);
+          dataUrl = res?.dataUrl || null;
+        }
+        if (!dataUrl) continue;
+        const parsedImg = dataUrlToImageBytes(dataUrl);
+        if (!parsedImg) continue;
+        const dim = await getImageDimensions(dataUrl);
+        const maxW = 400;
+        const scale = dim.width > maxW ? maxW / dim.width : 1;
+        children.push(new Paragraph({
+          children: [new ImageRun({
+            data: parsedImg.bytes,
+            type: parsedImg.type,
+            transformation: { width: Math.round(dim.width * scale), height: Math.round(dim.height * scale) },
+          })],
+        }));
+      }
+    }
 
     // Validasi ringan: susun ulang jadi HTML per-paragraf (mirip hasil mammoth) lalu coba parsing
     // dgn parser Generator CBT, supaya guru tahu lebih dulu apakah hasilnya akan terbaca dengan benar.
@@ -1238,7 +1332,7 @@ PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan
     const invalidCount = parsed.filter((s) => !s.valid).length;
 
     const doc = new Document({
-      sections: [{ children: lines.map((l) => new Paragraph(l)) }],
+      sections: [{ children }],
     });
     const blob = await Packer.toBlob(doc);
     const safeName = (mode === 'tka' ? tkaData.mataPelajaran : formData.mataPelajaran || 'soal').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
@@ -1247,12 +1341,15 @@ PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan
     a.download = `soal-cbt-${safeName || 'soal'}.docx`;
     a.click();
 
+    const gambarCount = Object.values(imagesByNum).reduce((n, arr) => n + arr.length, 0);
+    const gambarNote = gambarCount > 0 ? ` (${gambarCount} gambar/grafik ikut disalin)` : '';
+
     if (parsed.length === 0) {
-      setCbtExportMsg({ type: 'bad', text: 'File terunduh, tapi tidak ada soal terbaca. Cek manual sebelum diupload ke Generator CBT.' });
+      setCbtExportMsg({ type: 'bad', text: `File terunduh${gambarNote}, tapi tidak ada soal terbaca. Cek manual sebelum diupload ke Generator CBT.` });
     } else if (invalidCount > 0) {
-      setCbtExportMsg({ type: 'warn', text: `File terunduh: ${parsed.length} soal, ${invalidCount} bermasalah. Periksa & perbaiki di Word sebelum diupload ke Generator CBT.` });
+      setCbtExportMsg({ type: 'warn', text: `File terunduh${gambarNote}: ${parsed.length} soal, ${invalidCount} bermasalah. Periksa & perbaiki di Word sebelum diupload ke Generator CBT.` });
     } else {
-      setCbtExportMsg({ type: 'ok', text: `File terunduh: ${parsed.length} soal siap diupload langsung ke Generator CBT.` });
+      setCbtExportMsg({ type: 'ok', text: `File terunduh${gambarNote}: ${parsed.length} soal siap diupload langsung ke Generator CBT.` });
     }
   };
 
