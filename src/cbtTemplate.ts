@@ -23,6 +23,7 @@ export function buildCbtHtml(config: CbtConfig, soalList: SoalParsed[]) {
       tipe: s.tipe.toLowerCase(), // pg | pgk | isian | essay
       tanya: s.tanya,
       gambar: s.gambar || [],
+      tabel: s.tabel || [],
       pembahasan: s.pembahasan || ''
     };
     if (s.tipe === 'PG' || s.tipe === 'PGK') {
@@ -160,6 +161,9 @@ button{cursor:pointer;border:none;border-radius:9px;font-weight:700;font-size:14
 .hint-tipe{font-size:12.5px;color:var(--sub);margin-bottom:12px;font-style:italic;}
 .tanya{font-size:16px;line-height:1.65;margin-bottom:16px;color:var(--ink);}
 .tanya img,.opsi img{max-width:100%;border-radius:10px;margin-top:10px;display:block;}
+.tanya table{border-collapse:collapse;margin-top:10px;font-size:14px;width:100%;}
+.tanya table td,.tanya table th{border:1px solid var(--line);padding:6px 10px;text-align:left;}
+.tanya table th{background:var(--brand-tint);}
 .opsi-list{display:flex;flex-direction:column;gap:9px;}
 .opsi{border:1.5px solid var(--line);border-radius:11px;padding:12px 15px;cursor:pointer;font-size:14.5px;display:flex;gap:11px;align-items:flex-start;transition:.15s;}
 .opsi:hover{border-color:var(--brand-2);background:#fafbff;}
@@ -199,6 +203,7 @@ function escapeHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replac
 function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 function normJwb(s){ return String(s||'').trim().toLowerCase().replace(/\\s+/g,' ').replace(',', '.').replace(/\\.\$/,''); }
 function renderGambar(list){ return (list||[]).map(src => \`<img src="\${src}">\`).join(''); }
+function renderTabel(list){ return (list||[]).join(''); }
 
 function showScreen(name){
   ['login','test','result','review'].forEach(n => \$('#screen-'+n).classList.toggle('hidden', n!==name));
@@ -275,7 +280,7 @@ function renderSoal(){
   const s = state.soal[state.idx];
   const card = \$('#soal-card');
   let html = \`<div class="soal-no">Soal \${state.idx+1} / \${state.soal.length}</div>\`;
-  html += \`<div class="tanya">\${s.tanya}\${renderGambar(s.gambar)}</div>\`;
+  html += \`<div class="tanya">\${s.tanya}\${renderGambar(s.gambar)}\${renderTabel(s.tabel)}</div>\`;
 
   if(s.tipe==='pg'){
     html += '<div class="hint-tipe">Pilih satu jawaban yang paling tepat.</div><div class="opsi-list">';
@@ -430,7 +435,7 @@ function renderReview(){
     const box = document.createElement('div');
     box.className = 'rev-item ' + cls;
     let statusLbl = d.status==='ok'?'✓ Benar':d.status==='partial'?'± Sebagian Benar':d.status==='manual'?'✎ Menunggu Penilaian Guru':(d.status==='kosong'?'– Tidak Dijawab':'✗ Salah');
-    let html = \`<div class="rev-status">\${statusLbl}</div><div class="soal-no">Soal \${i+1}</div><div class="tanya">\${s.tanya}\${renderGambar(s.gambar)}</div>\`;
+    let html = \`<div class="rev-status">\${statusLbl}</div><div class="soal-no">Soal \${i+1}</div><div class="tanya">\${s.tanya}\${renderGambar(s.gambar)}\${renderTabel(s.tabel)}</div>\`;
 
     if(s.tipe==='pg'){
       html += '<div class="opsi-list">' + s.opsi.map((o,idx) => {

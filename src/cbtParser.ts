@@ -25,6 +25,7 @@ export interface SoalParsed {
   kunciIsian: string[];
   pembahasan: string;
   gambar: string[];
+  tabel: string[];
   errors: string[];
   valid: boolean;
 }
@@ -56,6 +57,13 @@ export function parseSoalDariHtml(htmlString: string): SoalParsed[] {
   }
 
   blocks.forEach((block) => {
+    // Tabel (mis. disisipkan lewat Insert > Table di Word) dipertahankan sbg HTML utuh, bukan
+    // diratakan jadi teks — supaya tampil sbg tabel sungguhan di aplikasi CBT, bukan kalimat acak.
+    if (block.tagName === 'TABLE') {
+      if (cur && mode === 'tanya') cur.tabel.push(block.outerHTML);
+      return;
+    }
+
     const text = (block.textContent || '').replace(/\s+/g, ' ').trim();
     const hasImgOnly = !text && block.querySelector('img');
     if (!text && !hasImgOnly) return;
@@ -71,6 +79,7 @@ export function parseSoalDariHtml(htmlString: string): SoalParsed[] {
         kunciIsian: [],
         pembahasan: '',
         gambar: [],
+        tabel: [],
         errors: [],
         valid: false,
       };
@@ -116,7 +125,7 @@ export function parseSoalDariHtml(htmlString: string): SoalParsed[] {
   return soalList.map(validateSoal);
 }
 
-function validateSoal(s: SoalParsed): SoalParsed {
+export function validateSoal(s: SoalParsed): SoalParsed {
   const errors: string[] = [];
   if (!s.tanya) errors.push('Teks soal kosong.');
   if (s.tipe === 'PG') {

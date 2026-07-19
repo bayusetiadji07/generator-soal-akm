@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
-import { parseSoalDariHtml, type SoalParsed } from './cbtParser';
+import { parseSoalDariHtml, validateSoal, type SoalParsed } from './cbtParser';
 import { buildCbtHtml } from './cbtTemplate';
-import { Document, Packer, Paragraph, ImageRun } from 'docx';
+import { Document, Packer, Paragraph, ImageRun, Table, TableRow, TableCell } from 'docx';
 
 declare const mammoth: any;
 
@@ -166,38 +166,6 @@ const kelasToFase = (jenjang, kelas) => {
   return 'C';
 };
 
-// Instruksi tambahan di penutup prompt AKM & TKA: minta AI menyertakan versi "data ekspor" dari soal
-// yang sama, ditulis mengikuti konvensi format naskah Word Generator CBT (lihat cbtParser.ts) — supaya
-// hasil generate AKM/TKA bisa langsung diekspor jadi .docx yang kompatibel utk diupload ke mode CBT.
-const CBT_EXPORT_PROMPT_BLOCK = `<h2>F. Data Ekspor CBT (WAJIB ADA, JANGAN DIEDIT/DIHAPUS)</h2>
-(Blok ini HANYA untuk keperluan sistem — dipakai membuat file upload ke Generator CBT, BUKAN untuk dibaca guru. Tulis PERSIS mengikuti format di bawah, seluruhnya di dalam SATU tag <pre id="cbt-export-data">...</pre>, dan JANGAN gunakan tag HTML lain di dalamnya sama sekali — tidak ada <b>, <sup>, <table>, dll, semua harus teks polos (rumus pakai simbol Unicode seperti sudah diinstruksikan di atas).
-
-ATURAN WAJIB isi blok ini:
-- HANYA sertakan soal berbentuk Pilihan Ganda (PG), Pilihan Ganda Kompleks (PGK), Isian Singkat, dan Uraian. LEWATI/JANGAN sertakan soal Benar-Salah maupun Menjodohkan (tidak didukung sistem CBT).
-- WAJIB gunakan PERSIS nomor soal YANG SAMA seperti di bagian C untuk tiap soal (JANGAN dinomori ulang) — sistem butuh nomor ini untuk mencocokkan & menyalin otomatis gambar/grafik dari bagian C ke soal yang sama di sini. Boleh ada lompatan nomor (mis. 1, 3, 4) bila ada soal Benar-Salah/Menjodohkan yang dilewati — itu wajar dan tidak masalah.
-- JANGAN gambarkan/deskripsikan ulang gambar ilustrasi atau grafik/SVG apapun di blok ini walau soal tersebut punya gambar di bagian C — sistem akan MENYALIN OTOMATIS gambar itu berdasarkan kecocokan nomor soal, cukup tulis teks soal & jawabannya saja.
-- Setiap soal WAJIB diawali baris persis: "N. [TIPE] teks soal" — TIPE salah satu dari PG, PGK, ISIAN, ESSAY (Uraian ditulis sebagai ESSAY).
-- PG: tulis semua opsi, satu opsi per baris "A. teks", "B. teks", dst. Beri tanda bintang "*" PERSIS di depan huruf opsi yang benar (mis. "*B. Jakarta") — WAJIB SAMA PERSIS dengan kunci di bagian D. Hanya SATU opsi bertanda bintang.
-- PGK: sama seperti PG, tapi BOLEH LEBIH DARI SATU opsi bertanda bintang "*" (harus konsisten dengan bagian D).
-- ISIAN: setelah baris soal, tulis baris "Kunci: jawaban" (SAMA PERSIS dengan kunci di bagian D).
-- ESSAY (dari Uraian): tidak perlu baris Kunci.
-- Baris "Pembahasan: teks" WAJIB ada di tiap soal, ringkas 1-2 kalimat, isinya sesuai bagian E, tanpa tag HTML.
-- Pisahkan tiap soal dengan SATU baris kosong.
-
-Contoh format PERSIS yang harus diikuti:
-<pre id="cbt-export-data">
-1. [PG] Ibu kota Indonesia adalah ...
-A. Bandung
-*B. Jakarta
-C. Surabaya
-D. Medan
-Pembahasan: Jakarta adalah ibu kota Indonesia.
-
-2. [ISIAN] Hasil dari 12 x 12 adalah ...
-Kunci: 144
-Pembahasan: 12 x 12 = 144.
-</pre>`;
-
 export default function App() {
   const [mode, setMode] = useState(null); // null | 'akm' | 'tka'
 
@@ -284,9 +252,8 @@ export default function App() {
   const [tkaHistory, setTkaHistory] = useState([]);
   const resultRef = useRef(null);
 
-  // Teks "F. Data Ekspor CBT" hasil generate AKM/TKA (dipisah dari generatedHtml) — dipakai tombol
-  // "Ekspor Word (Format CBT)" agar hasil generate bisa langsung diupload ke mode Generator CBT.
-  const [cbtExportText, setCbtExportText] = useState('');
+  // Status tombol "Ekspor Word (Format CBT)" di mode AKM/TKA — soal-nya sendiri diturunkan langsung
+  // dari generatedHtml (bagian C/D/E) tiap kali tombol diklik, tidak disimpan sbg state terpisah.
   const [cbtExportMsg, setCbtExportMsg] = useState<{ type: 'ok' | 'bad' | 'warn'; text: string } | null>(null);
 
   // ===== State mode "Generator CBT" (upload naskah Word -> aplikasi ujian CBT HTML) =====
@@ -316,7 +283,6 @@ export default function App() {
     setCbtSoal([]);
     setCbtParseMsg(null);
     setCbtGenMsg('');
-    setCbtExportText('');
     setCbtExportMsg(null);
   };
 
@@ -632,12 +598,11 @@ Format output yang WAJIB dipenuhi:
 <h2>C. Soal</h2>
 (Tampilkan tiap soal lengkap dengan stimulus, pertanyaan, dan pilihan/area jawaban)
 <h2>D. Kunci Jawaban</h2>
-(Tabel/Daftar Kunci Jawaban)
+(WAJIB berupa daftar bernomor "1. ...", "2. ...", dst — SATU baris per nomor soal, PERSIS mengikuti nomor di bagian C, JANGAN pakai tabel/format lain. Untuk PG tulis hurufnya saja mis. "1. B", untuk PGK tulis semua huruf yang benar mis. "2. A, C", untuk Isian Singkat tulis jawabannya mis. "3. 144".)
 <h2>E. Pembahasan</h2>
-(Penjelasan lengkap untuk masing-masing soal)
-${CBT_EXPORT_PROMPT_BLOCK}
+(WAJIB berupa daftar bernomor "1. ...", "2. ...", dst — SATU entri per nomor soal, PERSIS mengikuti nomor di bagian C, penjelasan ringkas 1-2 kalimat.)
 
-PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN membuat bagian "Analisis Soal" maupun "Pemeriksaan Kualitas Soal".
+PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN membuat bagian "Analisis Soal" maupun "Pemeriksaan Kualitas Soal".
 `;
   };
 
@@ -723,12 +688,11 @@ Format output yang WAJIB dipenuhi:
 <h2>C. Soal</h2>
 (Tampilkan tiap soal lengkap dengan stimulus, pertanyaan, dan pilihan/area jawaban)
 <h2>D. Kunci Jawaban</h2>
-(Tabel/Daftar Kunci Jawaban)
+(WAJIB berupa daftar bernomor "1. ...", "2. ...", dst — SATU baris per nomor soal, PERSIS mengikuti nomor di bagian C, JANGAN pakai tabel/format lain. Untuk PG tulis hurufnya saja mis. "1. B", untuk PGK tulis semua huruf yang benar mis. "2. A, C", untuk Isian Singkat tulis jawabannya mis. "3. 144".)
 <h2>E. Pembahasan</h2>
-(Penjelasan lengkap untuk masing-masing soal)
-${CBT_EXPORT_PROMPT_BLOCK}
+(WAJIB berupa daftar bernomor "1. ...", "2. ...", dst — SATU entri per nomor soal, PERSIS mengikuti nomor di bagian C, penjelasan ringkas 1-2 kalimat.)
 
-PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan proses internal Assessment Engine, JANGAN membuat bagian "Analisis Soal" maupun "Pemeriksaan Kualitas Soal" — validasi/QA dilakukan secara internal saja, bukan bagian output.
+PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan proses internal Assessment Engine, JANGAN membuat bagian "Analisis Soal" maupun "Pemeriksaan Kualitas Soal" — validasi/QA dilakukan secara internal saja, bukan bagian output.
 `;
   };
 
@@ -950,21 +914,6 @@ PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan
     return d.body.innerHTML;
   };
 
-  // Pisahkan bagian "F. Data Ekspor CBT" (<pre id="cbt-export-data">) dari HTML hasil generate AKM/TKA —
-  // dikembalikan terpisah (cbtText) sekaligus dibuang dari HTML yang ditampilkan/diekspor Word ke guru
-  // (blok itu cuma data internal utk fitur "Ekspor Word Format CBT", bukan konten yang perlu dibaca guru).
-  const extractAndStripCbtBlock = (html) => {
-    const d = new DOMParser().parseFromString(html, 'text/html');
-    const pre = d.querySelector('#cbt-export-data');
-    const cbtText = pre ? (pre.textContent || '').trim() : '';
-    if (pre) {
-      const heading = pre.previousElementSibling;
-      if (heading && /^H[1-4]$/.test(heading.tagName)) heading.remove();
-      pre.remove();
-    }
-    return { cleanedHtml: d.body.innerHTML, cbtText };
-  };
-
   // gambarMode: 'tidak' (tanpa gambar) | 'gambar' (auto-generate & tampil) | 'deskripsi' (teks prompt saja)
   // historyMode: 'akm' | 'tka' — menentukan riwayat anti-pengulangan mana yang diperbarui setelah sukses
   const runGeneration = async (promptText, gambarMode, historyMode) => {
@@ -972,7 +921,6 @@ PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan
     setIsGenerating(true);
     setLoadingStatus('Menyusun Asesmen...');
     setGeneratedHtml('');
-    setCbtExportText('');
     setCbtExportMsg(null);
 
     // Bangun parts multimodal: teks prompt + gambar yang diupload guru (agar AI "melihat" gambar)
@@ -1006,11 +954,6 @@ PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan
       textContent = cleanupMath(textContent);
       // Buang bagian Analisis Soal & Pemeriksaan Kualitas Soal bila masih muncul
       textContent = stripUnwantedSections(textContent);
-
-      // Pisahkan "F. Data Ekspor CBT" dari HTML yang akan ditampilkan/diekspor Word ke guru
-      const { cleanedHtml, cbtText } = extractAndStripCbtBlock(textContent);
-      textContent = cleanedHtml;
-      setCbtExportText(cbtText);
 
       // Sisipkan gambar upload guru ke penandanya (selalu, tak terpengaruh opsi gambar AI)
       textContent = await applyUserImages(textContent);
@@ -1146,42 +1089,143 @@ PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan
     });
   };
 
-  // Kumpulkan gambar (<img>) & grafik (<svg>) dari bagian "C. Soal", dikelompokkan per nomor soal —
-  // dipakai fitur "Ekspor Word (Format CBT)" utk menyalin otomatis gambar ke soal yang sama tanpa
-  // perlu AI menuliskan ulang gambar dalam bentuk teks (yang memang mustahil).
-  const extractImagesBySoalNumber = (html) => {
-    const d = new DOMParser().parseFromString(html, 'text/html');
-    const headings = Array.from(d.querySelectorAll('h2'));
-    const startH = headings.find((h) => /C\.\s*Soal/i.test(h.textContent || ''));
-    if (!startH) return {};
-    const collectMedia = (node) => {
-      const out = [];
-      const tag = (node.tagName || '').toLowerCase();
-      if (tag === 'img') out.push({ type: 'img', src: node.getAttribute('src') || '' });
-      else if (tag === 'svg') out.push({ type: 'svg', el: node });
-      else {
-        node.querySelectorAll?.('img').forEach((im) => out.push({ type: 'img', src: im.getAttribute('src') || '' }));
-        node.querySelectorAll?.('svg').forEach((sv) => out.push({ type: 'svg', el: sv }));
-      }
-      return out;
-    };
+  // ===== Turunan CBT dari generatedHtml (bagian C/D/E), dibangun via KODE bukan minta AI menulis
+  // ulang semua soal — supaya jumlah soal & tabel/gambar/grafik SELALU cocok dgn yang tampil di
+  // preview (tak bergantung pada AI mereproduksi ulang konten yg sama tanpa salah/lupa). =====
+
+  // Ambil elemen-elemen di antara sebuah heading <h2> (dicocokkan via regex judul) sampai <h2> berikutnya
+  const getSectionElements = (doc, headingMatch) => {
+    const headings = Array.from(doc.querySelectorAll('h2'));
+    const startH = headings.find((h) => headingMatch.test(h.textContent || ''));
+    if (!startH) return [];
+    const els = [];
+    let node = startH.nextElementSibling;
+    while (node && node.tagName !== 'H2') { els.push(node); node = node.nextElementSibling; }
+    return els;
+  };
+
+  // Peta nomor soal -> teks, dipakai utk bagian D (Kunci) & E (Pembahasan) — formatnya daftar
+  // bernomor "1. ..." (diminta di prompt) tapi tetap jaga-jaga kalau AI malah pakai tabel.
+  const extractNumberedTextMap = (elements) => {
     const map = {};
     let currentNum = null;
-    let node = startH.nextElementSibling;
-    while (node && node.tagName !== 'H2') {
-      const text = (node.textContent || '').trim();
-      const m = text.match(/^(\d+)[.)]/);
-      if (m) currentNum = parseInt(m[1], 10);
-      if (currentNum != null) {
-        const media = collectMedia(node);
-        if (media.length) {
-          if (!map[currentNum]) map[currentNum] = [];
-          map[currentNum].push(...media);
-        }
+    elements.forEach((el) => {
+      if (el.tagName === 'TABLE') {
+        Array.from(el.querySelectorAll('tr')).forEach((tr) => {
+          const cells = Array.from(tr.querySelectorAll('td,th')).map((c) => (c.textContent || '').trim());
+          if (cells.length < 2) return;
+          const num = parseInt(cells[0], 10);
+          if (!isNaN(num)) map[num] = cells.slice(1).join(' ');
+        });
+        return;
       }
-      node = node.nextElementSibling;
-    }
+      const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      const m = text.match(/^(\d+)[.)]\s*(.*)$/);
+      if (m) { currentNum = parseInt(m[1], 10); map[currentNum] = (m[2] || '').trim(); }
+      else if (currentNum != null) { map[currentNum] = (map[currentNum] ? map[currentNum] + ' ' : '') + text; }
+    });
     return map;
+  };
+
+  // Kumpulkan <img>/<svg> dari sebuah elemen (svg dikonversi ke PNG data URL via svgToPng)
+  const collectMediaAsDataUrls = async (el) => {
+    const out = [];
+    const tag = (el.tagName || '').toLowerCase();
+    const imgs = tag === 'img' ? [el] : Array.from(el.querySelectorAll?.('img') || []);
+    imgs.forEach((im) => out.push(im.getAttribute('src') || ''));
+    const svgs = tag === 'svg' ? [el] : Array.from(el.querySelectorAll?.('svg') || []);
+    for (const sv of svgs) {
+      const res = await svgToPng(sv);
+      if (res?.dataUrl) out.push(res.dataUrl);
+    }
+    return out.filter(Boolean);
+  };
+
+  // Baca bagian "C. Soal" & derive struktur soal (tipe, opsi, tabel, gambar) per nomor asli,
+  // lalu gabungkan dgn kunci (bagian D) & pembahasan (bagian E) berdasarkan nomor yang sama.
+  const deriveCbtSoalFromGeneratedHtml = async (html) => {
+    const d = new DOMParser().parseFromString(html, 'text/html');
+    const cEls = getSectionElements(d, /C\.\s*Soal/i);
+    const kunciMap = extractNumberedTextMap(getSectionElements(d, /D\.\s*Kunci/i));
+    const pembahasanMap = extractNumberedTextMap(getSectionElements(d, /E\.\s*Pembahasan/i));
+
+    const isBsTable = (table) => {
+      const t = (table.textContent || '').toLowerCase();
+      return t.includes('benar') && t.includes('salah');
+    };
+
+    const raw = [];
+    let cur = null;
+    for (const el of cEls) {
+      const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      const m = text.match(/^(\d+)[.)]\s*(.*)$/);
+      if (m) {
+        if (cur) raw.push(cur);
+        cur = { num: parseInt(m[1], 10), tanya: m[2] || '', opsi: [], tabel: [], gambar: [], tipe: null, skip: false };
+        cur.gambar.push(...(await collectMediaAsDataUrls(el)));
+        continue;
+      }
+      if (!cur) continue;
+      const tag = (el.tagName || '').toLowerCase();
+      if (tag === 'ol') {
+        cur.tipe = 'PG';
+        cur.opsi = Array.from(el.querySelectorAll('li')).map((li) => ({ teks: (li.textContent || '').trim() }));
+        continue;
+      }
+      if (tag === 'ul') {
+        const items = Array.from(el.querySelectorAll('li'));
+        if (items.some((li) => /[☐☑]/.test(li.textContent || ''))) {
+          cur.tipe = 'PGK';
+          cur.opsi = items.map((li) => ({ teks: (li.textContent || '').replace(/[☐☑]/g, '').trim() }));
+        }
+        continue;
+      }
+      if (tag === 'table') {
+        if (isBsTable(el)) { cur.skip = true; continue; }
+        cur.tabel.push(el.outerHTML);
+        cur.gambar.push(...(await collectMediaAsDataUrls(el)));
+        continue;
+      }
+      if (!cur.tipe) {
+        if (/_{3,}\s*$/.test(text)) {
+          cur.tipe = 'ISIAN';
+          cur.tanya += (text ? ' ' + text.replace(/_{3,}\s*$/, '').trim() : '');
+        } else if (text) {
+          cur.tanya += ' ' + text;
+        }
+        cur.gambar.push(...(await collectMediaAsDataUrls(el)));
+      }
+    }
+    if (cur) raw.push(cur);
+
+    return raw.filter((s) => !s.skip).map((s) => {
+      const tipe = s.tipe || 'ESSAY';
+      const kunciRaw = (kunciMap[s.num] || '').trim();
+      const soal = {
+        nomorAsli: String(s.num),
+        tipe,
+        tanya: s.tanya.trim(),
+        opsi: [],
+        kunciIsian: [],
+        pembahasan: (pembahasanMap[s.num] || '').trim(),
+        gambar: s.gambar,
+        tabel: s.tabel,
+        errors: [],
+        valid: false,
+      };
+      if (tipe === 'PG') {
+        const letterMatch = kunciRaw.match(/\b([A-E])\b/i);
+        const kunciIdx = letterMatch ? letterMatch[1].toUpperCase().charCodeAt(0) - 65 : -1;
+        soal.opsi = s.opsi.map((o, idx) => ({ teks: o.teks, benar: idx === kunciIdx }));
+      } else if (tipe === 'PGK') {
+        const letters = Array.from(kunciRaw.toUpperCase().matchAll(/[A-E]/g)).map((mm) => mm[0]);
+        soal.opsi = s.opsi.map((o, idx) => ({ teks: o.teks, benar: letters.includes(String.fromCharCode(65 + idx)) }));
+      } else if (tipe === 'ISIAN') {
+        soal.kunciIsian = kunciRaw ? [kunciRaw.replace(/\(.*?\)/g, '').trim()] : [];
+      }
+      return validateSoal(soal);
+    });
   };
 
   // Ubah data URL gambar (base64) jadi bytes mentah utk ImageRun (docx)
@@ -1282,58 +1326,67 @@ PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan
     URL.revokeObjectURL(url);
   };
 
-  // Ekspor hasil generate AKM/TKA (bagian "F. Data Ekspor CBT") jadi file .docx yang mengikuti
-  // konvensi format naskah Word Generator CBT — supaya bisa langsung diupload ke mode CBT.
+  // Ubah outerHTML tabel (dari bagian C) jadi Table docx sungguhan
+  const htmlTableToDocxTable = (tableHtml) => {
+    const d = new DOMParser().parseFromString(tableHtml, 'text/html');
+    const table = d.querySelector('table');
+    if (!table) return null;
+    const rows = Array.from(table.querySelectorAll('tr')).map((tr) => new TableRow({
+      children: Array.from(tr.querySelectorAll('td,th')).map((cell) => new TableCell({
+        children: [new Paragraph((cell.textContent || '').trim())],
+      })),
+    }));
+    return rows.length ? new Table({ rows }) : null;
+  };
+
+  // Sisipkan Paragraph gambar (data URL) ke array `children` docx, dilewati kalau bukan base64 valid
+  const pushImageParagraph = async (children, dataUrl) => {
+    const parsedImg = dataUrlToImageBytes(dataUrl);
+    if (!parsedImg) return false;
+    const dim = await getImageDimensions(dataUrl);
+    const maxW = 400;
+    const scale = dim.width > maxW ? maxW / dim.width : 1;
+    children.push(new Paragraph({
+      children: [new ImageRun({
+        data: parsedImg.bytes,
+        type: parsedImg.type,
+        transformation: { width: Math.round(dim.width * scale), height: Math.round(dim.height * scale) },
+      })],
+    }));
+    return true;
+  };
+
+  // Ekspor hasil generate AKM/TKA jadi file .docx yang mengikuti konvensi naskah Word Generator CBT.
+  // Soal, opsi, kunci, gambar, dan tabel diturunkan langsung dari generatedHtml (bagian C/D/E) via
+  // kode — bukan minta AI menulis ulang — supaya jumlah & isinya selalu cocok dgn yang tampil di preview.
   const handleExportCbtWord = async () => {
-    if (!cbtExportText) return;
-    const lines = cbtExportText.split('\n');
-    const RX_SOAL_START_LOCAL = /^(\d+)[.)]\s*\[(PG|PGK|ISIAN|ESSAY)\]\s*(.*)$/i;
+    if (!generatedHtml) return;
+    const derived = await deriveCbtSoalFromGeneratedHtml(generatedHtml);
+    const validSoal = derived.filter((s) => s.valid);
 
-    // Cocokkan gambar/grafik dari bagian C. Soal ke tiap soal (berdasar nomor asli yg sama)
-    const imagesByNum = extractImagesBySoalNumber(generatedHtml);
-
-    // Susun paragraf docx: tiap baris teks jadi 1 paragraf; tepat setelah baris "N. [TIPE] ..."
-    // sisipkan gambar/grafik milik nomor soal itu (kalau ada), sebelum baris opsi/kunci berikutnya.
+    let gambarCount = 0;
     const children = [];
-    for (const line of lines) {
-      children.push(new Paragraph(line));
-      const m = line.match(RX_SOAL_START_LOCAL);
-      if (!m) continue;
-      const soalNum = parseInt(m[1], 10);
-      const media = imagesByNum[soalNum] || [];
-      for (const item of media) {
-        let dataUrl = null;
-        if (item.type === 'img') dataUrl = item.src;
-        else if (item.type === 'svg') {
-          const res = await svgToPng(item.el);
-          dataUrl = res?.dataUrl || null;
-        }
-        if (!dataUrl) continue;
-        const parsedImg = dataUrlToImageBytes(dataUrl);
-        if (!parsedImg) continue;
-        const dim = await getImageDimensions(dataUrl);
-        const maxW = 400;
-        const scale = dim.width > maxW ? maxW / dim.width : 1;
-        children.push(new Paragraph({
-          children: [new ImageRun({
-            data: parsedImg.bytes,
-            type: parsedImg.type,
-            transformation: { width: Math.round(dim.width * scale), height: Math.round(dim.height * scale) },
-          })],
-        }));
+    for (const s of validSoal) {
+      children.push(new Paragraph(`${s.nomorAsli}. [${s.tipe}] ${s.tanya}`));
+      for (const src of s.gambar) {
+        if (await pushImageParagraph(children, src)) gambarCount++;
       }
+      for (const tableHtml of s.tabel) {
+        const table = htmlTableToDocxTable(tableHtml);
+        if (table) children.push(table);
+      }
+      if (s.tipe === 'PG' || s.tipe === 'PGK') {
+        s.opsi.forEach((o, idx) => {
+          children.push(new Paragraph(`${o.benar ? '*' : ''}${String.fromCharCode(65 + idx)}. ${o.teks}`));
+        });
+      } else if (s.tipe === 'ISIAN') {
+        children.push(new Paragraph(`Kunci: ${s.kunciIsian.join(' | ')}`));
+      }
+      if (s.pembahasan) children.push(new Paragraph(`Pembahasan: ${s.pembahasan}`));
+      children.push(new Paragraph(''));
     }
 
-    // Validasi ringan: susun ulang jadi HTML per-paragraf (mirip hasil mammoth) lalu coba parsing
-    // dgn parser Generator CBT, supaya guru tahu lebih dulu apakah hasilnya akan terbaca dengan benar.
-    const escapeForPreview = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const fakeHtml = lines.map((l) => `<p>${escapeForPreview(l) || '&nbsp;'}</p>`).join('');
-    const parsed = parseSoalDariHtml(fakeHtml);
-    const invalidCount = parsed.filter((s) => !s.valid).length;
-
-    const doc = new Document({
-      sections: [{ children }],
-    });
+    const doc = new Document({ sections: [{ children }] });
     const blob = await Packer.toBlob(doc);
     const safeName = (mode === 'tka' ? tkaData.mataPelajaran : formData.mataPelajaran || 'soal').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
     const a = document.createElement('a');
@@ -1341,15 +1394,16 @@ PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan
     a.download = `soal-cbt-${safeName || 'soal'}.docx`;
     a.click();
 
-    const gambarCount = Object.values(imagesByNum).reduce((n, arr) => n + arr.length, 0);
+    const totalCount = derived.length;
+    const skippedCount = totalCount - validSoal.length;
     const gambarNote = gambarCount > 0 ? ` (${gambarCount} gambar/grafik ikut disalin)` : '';
 
-    if (parsed.length === 0) {
+    if (validSoal.length === 0) {
       setCbtExportMsg({ type: 'bad', text: `File terunduh${gambarNote}, tapi tidak ada soal terbaca. Cek manual sebelum diupload ke Generator CBT.` });
-    } else if (invalidCount > 0) {
-      setCbtExportMsg({ type: 'warn', text: `File terunduh${gambarNote}: ${parsed.length} soal, ${invalidCount} bermasalah. Periksa & perbaiki di Word sebelum diupload ke Generator CBT.` });
+    } else if (skippedCount > 0) {
+      setCbtExportMsg({ type: 'warn', text: `File terunduh${gambarNote}: ${validSoal.length} soal, ${skippedCount} bermasalah/tak didukung (mis. Benar-Salah/Menjodohkan) dilewati. Periksa sebelum diupload ke Generator CBT.` });
     } else {
-      setCbtExportMsg({ type: 'ok', text: `File terunduh${gambarNote}: ${parsed.length} soal siap diupload langsung ke Generator CBT.` });
+      setCbtExportMsg({ type: 'ok', text: `File terunduh${gambarNote}: ${validSoal.length} soal siap diupload langsung ke Generator CBT.` });
     }
   };
 
@@ -1401,10 +1455,10 @@ PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan
 
             <button
               onClick={handleExportCbtWord}
-              disabled={!cbtExportText || isGenerating}
+              disabled={!generatedHtml || isGenerating}
               title="Ekspor soal ini jadi file .docx yang bisa langsung diupload ke mode Generator CBT"
               className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition ${
-                !cbtExportText || isGenerating
+                !generatedHtml || isGenerating
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
               }`}
@@ -1998,6 +2052,16 @@ Kunci: 144
                   </span>
                 </div>
                 <div className="text-gray-800 mb-1.5">{s.tanya}</div>
+                {s.gambar && s.gambar.length > 0 && (
+                  <div className="mb-2 space-y-1">
+                    {s.gambar.map((src, gi) => (
+                      <img key={gi} src={src} alt="Gambar soal" className="max-w-full rounded-lg" />
+                    ))}
+                  </div>
+                )}
+                {s.tabel && s.tabel.length > 0 && (
+                  <div className="mb-2 overflow-x-auto" dangerouslySetInnerHTML={{ __html: s.tabel.join('') }} />
+                )}
                 {(s.tipe === 'PG' || s.tipe === 'PGK') && (
                   <div className="space-y-0.5">
                     {s.opsi.map((o, idx) => (
