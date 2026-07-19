@@ -45,6 +45,45 @@ export async function patchAccessCode(codeNorm, patch) {
   }
 }
 
+// Bikin kode akses baru & simpan ke tabel. Dipakai webhook Lynk.id (source='lynk') dan nantinya
+// halaman admin generate manual (source='manual'). refId dipakai utk cegah duplikat saat webhook
+// yang sama terkirim ulang (Lynk.id lazim me-retry kalau tidak dapat respons 200 tepat waktu).
+export function generateAccessCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // tanpa 0/O/1/I yg gampang salah baca
+  const part = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  return `SIGATOT-${part()}-${part()}`
+}
+
+export async function findByRefId(refId) {
+  if (!refId) return null
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/sigatot_access_codes?ref_id=eq.${encodeURIComponent(refId)}&select=*`,
+      { headers: headers() }
+    )
+    if (!res.ok) return null
+    const rows = await res.json()
+    return Array.isArray(rows) && rows.length ? rows[0] : null
+  } catch {
+    return null
+  }
+}
+
+export async function insertAccessCode(row) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/sigatot_access_codes`, {
+      method: 'POST',
+      headers: { ...headers(), Prefer: 'return=representation' },
+      body: JSON.stringify(row),
+    })
+    if (!res.ok) return { error: `insert_failed_${res.status}: ${await res.text()}` }
+    const rows = await res.json()
+    return { row: Array.isArray(rows) && rows.length ? rows[0] : null }
+  } catch (err) {
+    return { error: `network_error: ${err?.message || err}` }
+  }
+}
+
 // Dipakai generate.js/generate-deepseek.js: kembalikan {ok:true} kalau kode+deviceToken valid & aktif,
 // {ok:false, message} kalau tidak (belum aktivasi, dinonaktifkan, atau device tidak cocok).
 export async function verifyAccessForApi(code, deviceToken) {
