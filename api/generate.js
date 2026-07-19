@@ -4,6 +4,8 @@
 // Tahan banting: kalau model utama sedang overload (503) atau kena limit (429),
 // otomatis mencoba model cadangan secara berurutan.
 
+import { verifyAccessForApi } from './_lib/access.js'
+
 export const maxDuration = 60
 
 const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite']
@@ -15,6 +17,14 @@ export default async function handler(req, res) {
 
   // Dukung format baru { apiKey, payload }; tetap kompatibel dengan body lama (payload langsung)
   const body = req.body || {}
+
+  // Gerbang kode akses: cek server-side (bukan cuma di tampilan) supaya kode yang dinonaktifkan
+  // penjual benar-benar berhenti bisa memakai kuota AI berbayar ini.
+  const access = await verifyAccessForApi(body.accessCode, body.deviceToken)
+  if (!access.ok) {
+    return res.status(access.status).json({ error: { message: access.message } })
+  }
+
   const userKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : ''
   const payload = body.payload || body
   const apiKey = userKey || process.env.GEMINI_API_KEY

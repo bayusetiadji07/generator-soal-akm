@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { parseSoalDariHtml, validateSoal, type SoalParsed } from './cbtParser';
 import { buildCbtHtml } from './cbtTemplate';
 import { Document, Packer, Paragraph, ImageRun, Table, TableRow, TableCell } from 'docx';
+import { getStoredAccess, clearStoredAccess } from './AccessGate';
 
 declare const mammoth: any;
 
@@ -756,12 +757,18 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     for (let i = 0; i < retries; i++) {
       try {
         const endpoint = aiProvider === 'deepseek' ? '/api/generate-deepseek' : '/api/generate';
+        const access = getStoredAccess();
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ apiKey: apiKeySource === 'bawaan' ? '' : apiKey, payload })
+          body: JSON.stringify({
+            apiKey: apiKeySource === 'bawaan' ? '' : apiKey,
+            payload,
+            accessCode: access?.code || '',
+            deviceToken: access?.deviceToken || '',
+          })
         });
 
         if (!response.ok) {
@@ -2267,15 +2274,25 @@ Kunci: 144
               {mode === null && 'Pilih jenis generator soal di bawah untuk mulai'}
             </p>
           </div>
-          {mode !== null && (
+          <div className="flex items-center gap-2">
+            {mode !== null && (
+              <button
+                type="button"
+                onClick={() => switchMode(null)}
+                className="px-3 py-2 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-100 whitespace-nowrap"
+              >
+                ← Ganti Generator
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => switchMode(null)}
+              title="Keluar dari akses ini (perlu kode akses lagi utk masuk)"
+              onClick={() => { if (confirm('Keluar dari aplikasi? Anda perlu memasukkan kode akses lagi untuk masuk.')) { clearStoredAccess(); window.location.reload(); } }}
               className="px-3 py-2 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-100 whitespace-nowrap"
             >
-              ← Ganti Generator
+              Keluar
             </button>
-          )}
+          </div>
         </div>
 
         {(mode === 'akm' || mode === 'tka') && (
