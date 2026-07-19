@@ -28,6 +28,10 @@ export interface SoalParsed {
   tabel: string[];
   errors: string[];
   valid: boolean;
+  // Dipakai fitur "Ekspor Word (Format CBT)" di mode AKM/TKA (lihat App.tsx) — tidak diisi
+  // saat parsing naskah .docx yang diupload guru.
+  skip?: boolean;                // bentuk soal tak didukung CBT (Benar-Salah / Menjodohkan)
+  kunciTidakTerbaca?: boolean;   // kunci gagal dicocokkan dari bagian D, perlu dicek guru
 }
 
 const RX_SOAL_START = /^(\d+)[.)]\s*\[(PG|PGK|ISIAN|ESSAY)\]\s*(.*)$/i;

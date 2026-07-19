@@ -1093,38 +1093,81 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
   // ulang semua soal — supaya jumlah soal & tabel/gambar/grafik SELALU cocok dgn yang tampil di
   // preview (tak bergantung pada AI mereproduksi ulang konten yg sama tanpa salah/lupa). =====
 
-  // Ambil elemen-elemen di antara sebuah heading <h2> (dicocokkan via regex judul) sampai <h2> berikutnya
+  // Ambil elemen-elemen di antara heading suatu bagian (A–F) sampai heading bagian berikutnya.
+  // Sengaja toleran: heading bisa h1/h2/h3, dan pemberhentian hanya pada heading yang benar-benar
+  // menandai bagian baru ("D. Kunci Jawaban" dst) — supaya <h3>Soal 5</h3> di dalam bagian C tidak
+  // ikut memotong bagian itu di tengah jalan.
+  const isSectionHeading = (el) => {
+    if (!/^H[1-3]$/.test(el.tagName || '')) return false;
+    const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    // "Soal 1" / "Soal No. 3" adalah JUDUL SOAL (isi bagian C), bukan judul bagian baru — kalau
+    // dianggap judul bagian, bagian C langsung terpotong di soal pertama & semua soal hilang.
+    if (/^(soal|nomor)\s*(no\.?\s*)?\d/i.test(t)) return false;
+    return /^[A-F][.)]\s/.test(t) || /^(identitas|kisi-kisi|soal|kunci jawaban|pembahasan)\b/i.test(t);
+  };
+
   const getSectionElements = (doc, headingMatch) => {
-    const headings = Array.from(doc.querySelectorAll('h2'));
-    const startH = headings.find((h) => headingMatch.test(h.textContent || ''));
+    const headings = Array.from(doc.querySelectorAll('h1,h2,h3'));
+    const startH = headings.find((h) => {
+      const t = (h.textContent || '').replace(/\s+/g, ' ').trim();
+      if (/^(soal|nomor)\s*(no\.?\s*)?\d/i.test(t)) return false;
+      return headingMatch.test(t);
+    });
     if (!startH) return [];
     const els = [];
     let node = startH.nextElementSibling;
-    while (node && node.tagName !== 'H2') { els.push(node); node = node.nextElementSibling; }
+    while (node && !isSectionHeading(node)) { els.push(node); node = node.nextElementSibling; }
     return els;
   };
 
-  // Peta nomor soal -> teks, dipakai utk bagian D (Kunci) & E (Pembahasan) — formatnya daftar
-  // bernomor "1. ..." (diminta di prompt) tapi tetap jaga-jaga kalau AI malah pakai tabel.
+  // Cocokkan awal entri bernomor, toleran thd variasi AI: "1.", "1)", "Soal 1:", "No. 1 -", dst
+  const matchNomorAwal = (text) => {
+    const m = text.match(/^(?:soal\s*)?(?:no\.?\s*)?(\d{1,3})\s*[.):\-]\s*(.*)$/i)
+      || text.match(/^(?:soal|nomor)\s+(\d{1,3})\b\s*(.*)$/i);
+    return m ? { num: parseInt(m[1], 10), sisa: (m[2] || '').trim() } : null;
+  };
+
+  // Peta nomor soal -> teks, dipakai utk bagian D (Kunci) & E (Pembahasan). Menangani daftar
+  // bernomor (format yang diminta di prompt), <ol> tanpa nomor eksplisit, maupun tabel.
   const extractNumberedTextMap = (elements) => {
     const map = {};
     let currentNum = null;
-    elements.forEach((el) => {
-      if (el.tagName === 'TABLE') {
-        Array.from(el.querySelectorAll('tr')).forEach((tr) => {
-          const cells = Array.from(tr.querySelectorAll('td,th')).map((c) => (c.textContent || '').trim());
-          if (cells.length < 2) return;
-          const num = parseInt(cells[0], 10);
-          if (!isNaN(num)) map[num] = cells.slice(1).join(' ');
-        });
-        return;
-      }
-      const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
-      if (!text) return;
-      const m = text.match(/^(\d+)[.)]\s*(.*)$/);
-      if (m) { currentNum = parseInt(m[1], 10); map[currentNum] = (m[2] || '').trim(); }
-      else if (currentNum != null) { map[currentNum] = (map[currentNum] ? map[currentNum] + ' ' : '') + text; }
-    });
+    const addText = (num, txt) => {
+      if (num == null || !txt) return;
+      map[num] = map[num] ? `${map[num]} ${txt}` : txt;
+    };
+    const walk = (els) => {
+      els.forEach((el) => {
+        const tag = (el.tagName || '').toLowerCase();
+        if (tag === 'table') {
+          Array.from(el.querySelectorAll('tr')).forEach((tr) => {
+            const cells = Array.from(tr.querySelectorAll('td,th')).map((c) => (c.textContent || '').replace(/\s+/g, ' ').trim());
+            if (cells.length < 2) return;
+            const num = parseInt(cells[0].replace(/[^\d]/g, ''), 10);
+            if (!isNaN(num)) map[num] = cells.slice(1).filter(Boolean).join(' ');
+          });
+          return;
+        }
+        // <ol> tanpa nomor tertulis: urutan <li> = nomor soal 1,2,3,...
+        if (tag === 'ol') {
+          const items = Array.from(el.querySelectorAll(':scope > li'));
+          items.forEach((li, idx) => {
+            const t = (li.textContent || '').replace(/\s+/g, ' ').trim();
+            const nm = matchNomorAwal(t);
+            if (nm) { currentNum = nm.num; addText(nm.num, nm.sisa); }
+            else { currentNum = idx + 1; addText(idx + 1, t); }
+          });
+          return;
+        }
+        if (tag === 'ul' || tag === 'div') { walk(Array.from(el.children)); return; }
+        const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+        if (!text) return;
+        const nm = matchNomorAwal(text);
+        if (nm) { currentNum = nm.num; map[nm.num] = nm.sisa; }
+        else addText(currentNum, text);
+      });
+    };
+    walk(elements);
     return map;
   };
 
@@ -1144,87 +1187,124 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
 
   // Baca bagian "C. Soal" & derive struktur soal (tipe, opsi, tabel, gambar) per nomor asli,
   // lalu gabungkan dgn kunci (bagian D) & pembahasan (bagian E) berdasarkan nomor yang sama.
+  // Sengaja dibuat sangat toleran thd variasi format keluaran AI, dan TIDAK membuang soal yang
+  // kuncinya gagal terbaca — soal tsb tetap diekspor lalu dilaporkan agar guru bisa perbaiki di Word.
   const deriveCbtSoalFromGeneratedHtml = async (html) => {
     const d = new DOMParser().parseFromString(html, 'text/html');
-    const cEls = getSectionElements(d, /C\.\s*Soal/i);
-    const kunciMap = extractNumberedTextMap(getSectionElements(d, /D\.\s*Kunci/i));
-    const pembahasanMap = extractNumberedTextMap(getSectionElements(d, /E\.\s*Pembahasan/i));
+    const cEls = getSectionElements(d, /^C[.)]\s*Soal|^Soal\b/i);
+    const kunciMap = extractNumberedTextMap(getSectionElements(d, /^D[.)]\s*Kunci|^Kunci Jawaban\b/i));
+    const pembahasanMap = extractNumberedTextMap(getSectionElements(d, /^E[.)]\s*Pembahasan|^Pembahasan\b/i));
 
     const isBsTable = (table) => {
-      const t = (table.textContent || '').toLowerCase();
-      return t.includes('benar') && t.includes('salah');
+      const rows = Array.from(table.querySelectorAll('tr'));
+      if (!rows.length) return false;
+      const head = (rows[0].textContent || '').toLowerCase();
+      return head.includes('benar') && head.includes('salah');
     };
+    const isMenjodohkan = (s) => /jodohkan|pasangkan|memasangkan/i.test(s.tanya || '');
 
     const raw = [];
     let cur = null;
+    const pushCur = () => { if (cur) raw.push(cur); };
+
     for (const el of cEls) {
       const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
-      const m = text.match(/^(\d+)[.)]\s*(.*)$/);
-      if (m) {
-        if (cur) raw.push(cur);
-        cur = { num: parseInt(m[1], 10), tanya: m[2] || '', opsi: [], tabel: [], gambar: [], tipe: null, skip: false };
-        cur.gambar.push(...(await collectMediaAsDataUrls(el)));
+      const tag = (el.tagName || '').toLowerCase();
+      // Media dikumpulkan utk SEMUA elemen milik soal berjalan (bukan hanya sebelum opsi terbaca) —
+      // ini penyebab gambar/grafik sempat hilang saat diletakkan AI setelah daftar opsi.
+      const media = await collectMediaAsDataUrls(el);
+
+      const nm = matchNomorAwal(text);
+      const looksLikeOption = /^\*?\s*[A-E][.)]\s+/.test(text);
+      if (nm && !looksLikeOption) {
+        pushCur();
+        cur = { num: nm.num, tanya: nm.sisa, opsi: [], tabel: [], gambar: [...media], tipe: null, skip: false };
         continue;
       }
       if (!cur) continue;
-      const tag = (el.tagName || '').toLowerCase();
+      cur.gambar.push(...media);
+
       if (tag === 'ol') {
-        cur.tipe = 'PG';
-        cur.opsi = Array.from(el.querySelectorAll('li')).map((li) => ({ teks: (li.textContent || '').trim() }));
+        const items = Array.from(el.querySelectorAll('li'));
+        if (items.length >= 2) {
+          cur.tipe = 'PG';
+          cur.opsi = items.map((li) => ({ teks: (li.textContent || '').replace(/\s+/g, ' ').trim() }));
+        }
         continue;
       }
       if (tag === 'ul') {
         const items = Array.from(el.querySelectorAll('li'));
-        if (items.some((li) => /[☐☑]/.test(li.textContent || ''))) {
+        if (items.length >= 2) {
           cur.tipe = 'PGK';
-          cur.opsi = items.map((li) => ({ teks: (li.textContent || '').replace(/[☐☑]/g, '').trim() }));
+          cur.opsi = items.map((li) => ({ teks: (li.textContent || '').replace(/[☐☑]/g, '').replace(/\s+/g, ' ').trim() }));
         }
         continue;
       }
       if (tag === 'table') {
         if (isBsTable(el)) { cur.skip = true; continue; }
         cur.tabel.push(el.outerHTML);
-        cur.gambar.push(...(await collectMediaAsDataUrls(el)));
         continue;
       }
-      if (!cur.tipe) {
-        if (/_{3,}\s*$/.test(text)) {
-          cur.tipe = 'ISIAN';
-          cur.tanya += (text ? ' ' + text.replace(/_{3,}\s*$/, '').trim() : '');
-        } else if (text) {
-          cur.tanya += ' ' + text;
+      // Opsi yang ditulis sbg paragraf biasa ("A. Bandung") — bukan <ol>/<ul>
+      if (looksLikeOption) {
+        const om = text.match(/^\*?\s*([A-E])[.)]\s+(.*)$/);
+        if (om) {
+          if (!cur.tipe) cur.tipe = 'PG';
+          cur.opsi.push({ teks: (om[2] || '').trim(), huruf: om[1].toUpperCase() });
         }
-        cur.gambar.push(...(await collectMediaAsDataUrls(el)));
+        continue;
+      }
+      if (!cur.opsi.length) {
+        if (/_{3,}/.test(text)) {
+          cur.tipe = 'ISIAN';
+          cur.tanya += (cur.tanya ? ' ' : '') + text.replace(/_{3,}/g, '').trim();
+        } else if (text) {
+          cur.tanya += (cur.tanya ? ' ' : '') + text;
+        }
       }
     }
-    if (cur) raw.push(cur);
+    pushCur();
 
-    return raw.filter((s) => !s.skip).map((s) => {
-      const tipe = s.tipe || 'ESSAY';
+    return raw.map((s) => {
+      const tipe = s.skip || isMenjodohkan(s) ? 'SKIP' : (s.tipe || (s.opsi.length >= 2 ? 'PG' : 'ESSAY'));
       const kunciRaw = (kunciMap[s.num] || '').trim();
       const soal = {
         nomorAsli: String(s.num),
-        tipe,
+        tipe: tipe === 'SKIP' ? 'ESSAY' : tipe,
         tanya: s.tanya.trim(),
         opsi: [],
         kunciIsian: [],
         pembahasan: (pembahasanMap[s.num] || '').trim(),
-        gambar: s.gambar,
+        gambar: s.gambar.filter(Boolean),
         tabel: s.tabel,
         errors: [],
         valid: false,
+        skip: tipe === 'SKIP',
+        kunciTidakTerbaca: false,
       };
-      if (tipe === 'PG') {
-        const letterMatch = kunciRaw.match(/\b([A-E])\b/i);
-        const kunciIdx = letterMatch ? letterMatch[1].toUpperCase().charCodeAt(0) - 65 : -1;
-        soal.opsi = s.opsi.map((o, idx) => ({ teks: o.teks, benar: idx === kunciIdx }));
-      } else if (tipe === 'PGK') {
-        const letters = Array.from(kunciRaw.toUpperCase().matchAll(/[A-E]/g)).map((mm) => mm[0]);
-        soal.opsi = s.opsi.map((o, idx) => ({ teks: o.teks, benar: letters.includes(String.fromCharCode(65 + idx)) }));
+      if (tipe === 'PG' || tipe === 'PGK') {
+        // Kunci bisa berupa huruf ("B", "A dan C") ATAU teks jawaban yang dikutip ulang.
+        const letters = Array.from(kunciRaw.toUpperCase().matchAll(/(?:^|[^A-Z])([A-E])(?![A-Z])/g)).map((mm) => mm[1]);
+        const normalize = (t) => t.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const kunciNorm = normalize(kunciRaw);
+        soal.opsi = s.opsi.map((o, idx) => {
+          const huruf = o.huruf || String.fromCharCode(65 + idx);
+          const byLetter = letters.includes(huruf);
+          const byText = kunciNorm.length > 2 && normalize(o.teks).length > 2 && kunciNorm.includes(normalize(o.teks));
+          return { teks: o.teks, benar: byLetter || byText };
+        });
+        const jmlBenar = soal.opsi.filter((o) => o.benar).length;
+        if (tipe === 'PG' && jmlBenar !== 1) soal.kunciTidakTerbaca = true;
+        if (tipe === 'PGK' && jmlBenar < 1) soal.kunciTidakTerbaca = true;
       } else if (tipe === 'ISIAN') {
-        soal.kunciIsian = kunciRaw ? [kunciRaw.replace(/\(.*?\)/g, '').trim()] : [];
+        const bersih = kunciRaw.replace(/\(.*?\)/g, '').trim();
+        soal.kunciIsian = bersih ? [bersih] : [];
+        if (!bersih) soal.kunciTidakTerbaca = true;
       }
-      return validateSoal(soal);
+      const validated = validateSoal(soal);
+      validated.skip = soal.skip;
+      validated.kunciTidakTerbaca = soal.kunciTidakTerbaca;
+      return validated;
     });
   };
 
@@ -1362,11 +1442,13 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
   const handleExportCbtWord = async () => {
     if (!generatedHtml) return;
     const derived = await deriveCbtSoalFromGeneratedHtml(generatedHtml);
-    const validSoal = derived.filter((s) => s.valid);
+    // Soal Benar-Salah/Menjodohkan memang tak didukung CBT → dilewati. Selain itu SEMUA soal ikut
+    // diekspor (termasuk yang kuncinya gagal terbaca) supaya jumlahnya tidak berkurang diam-diam.
+    const exported = derived.filter((s) => !s.skip);
 
     let gambarCount = 0;
     const children = [];
-    for (const s of validSoal) {
+    for (const s of exported) {
       children.push(new Paragraph(`${s.nomorAsli}. [${s.tipe}] ${s.tanya}`));
       for (const src of s.gambar) {
         if (await pushImageParagraph(children, src)) gambarCount++;
@@ -1394,16 +1476,17 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     a.download = `soal-cbt-${safeName || 'soal'}.docx`;
     a.click();
 
-    const totalCount = derived.length;
-    const skippedCount = totalCount - validSoal.length;
+    const skipped = derived.filter((s) => s.skip);
+    const perluCek = exported.filter((s) => s.kunciTidakTerbaca).map((s) => s.nomorAsli);
     const gambarNote = gambarCount > 0 ? ` (${gambarCount} gambar/grafik ikut disalin)` : '';
+    const skipNote = skipped.length ? ` ${skipped.length} soal Benar-Salah/Menjodohkan dilewati (tak didukung CBT).` : '';
 
-    if (validSoal.length === 0) {
-      setCbtExportMsg({ type: 'bad', text: `File terunduh${gambarNote}, tapi tidak ada soal terbaca. Cek manual sebelum diupload ke Generator CBT.` });
-    } else if (skippedCount > 0) {
-      setCbtExportMsg({ type: 'warn', text: `File terunduh${gambarNote}: ${validSoal.length} soal, ${skippedCount} bermasalah/tak didukung (mis. Benar-Salah/Menjodohkan) dilewati. Periksa sebelum diupload ke Generator CBT.` });
+    if (exported.length === 0) {
+      setCbtExportMsg({ type: 'bad', text: `File terunduh, tapi tidak ada soal terbaca dari hasil generate. Coba generate ulang, atau susun naskah manual dengan template Generator CBT.` });
+    } else if (perluCek.length) {
+      setCbtExportMsg({ type: 'warn', text: `File terunduh${gambarNote}: ${exported.length} soal.${skipNote} Kunci soal nomor ${perluCek.join(', ')} tidak terbaca otomatis — beri tanda * pada opsi yang benar (atau isi baris "Kunci:") di Word sebelum diupload.` });
     } else {
-      setCbtExportMsg({ type: 'ok', text: `File terunduh${gambarNote}: ${validSoal.length} soal siap diupload langsung ke Generator CBT.` });
+      setCbtExportMsg({ type: 'ok', text: `File terunduh${gambarNote}: ${exported.length} soal siap diupload langsung ke Generator CBT.${skipNote}` });
     }
   };
 
