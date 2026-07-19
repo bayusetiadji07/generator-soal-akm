@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { parseSoalDariHtml, type SoalParsed } from './cbtParser';
 import { buildCbtHtml } from './cbtTemplate';
+import { Document, Packer, Paragraph } from 'docx';
 
 declare const mammoth: any;
 
@@ -165,6 +166,37 @@ const kelasToFase = (jenjang, kelas) => {
   return 'C';
 };
 
+// Instruksi tambahan di penutup prompt AKM & TKA: minta AI menyertakan versi "data ekspor" dari soal
+// yang sama, ditulis mengikuti konvensi format naskah Word Generator CBT (lihat cbtParser.ts) — supaya
+// hasil generate AKM/TKA bisa langsung diekspor jadi .docx yang kompatibel utk diupload ke mode CBT.
+const CBT_EXPORT_PROMPT_BLOCK = `<h2>F. Data Ekspor CBT (WAJIB ADA, JANGAN DIEDIT/DIHAPUS)</h2>
+(Blok ini HANYA untuk keperluan sistem — dipakai membuat file upload ke Generator CBT, BUKAN untuk dibaca guru. Tulis PERSIS mengikuti format di bawah, seluruhnya di dalam SATU tag <pre id="cbt-export-data">...</pre>, dan JANGAN gunakan tag HTML lain di dalamnya sama sekali — tidak ada <b>, <sup>, <table>, dll, semua harus teks polos (rumus pakai simbol Unicode seperti sudah diinstruksikan di atas).
+
+ATURAN WAJIB isi blok ini:
+- HANYA sertakan soal berbentuk Pilihan Ganda (PG), Pilihan Ganda Kompleks (PGK), Isian Singkat, dan Uraian. LEWATI/JANGAN sertakan soal Benar-Salah maupun Menjodohkan (tidak didukung sistem CBT).
+- Nomori ulang soal berurutan mulai dari 1 KHUSUS untuk soal yang disertakan di blok ini (boleh berbeda dari nomor di bagian C bila ada Benar-Salah/Menjodohkan yang dilewati).
+- Setiap soal WAJIB diawali baris persis: "N. [TIPE] teks soal" — TIPE salah satu dari PG, PGK, ISIAN, ESSAY (Uraian ditulis sebagai ESSAY).
+- PG: tulis semua opsi, satu opsi per baris "A. teks", "B. teks", dst. Beri tanda bintang "*" PERSIS di depan huruf opsi yang benar (mis. "*B. Jakarta") — WAJIB SAMA PERSIS dengan kunci di bagian D. Hanya SATU opsi bertanda bintang.
+- PGK: sama seperti PG, tapi BOLEH LEBIH DARI SATU opsi bertanda bintang "*" (harus konsisten dengan bagian D).
+- ISIAN: setelah baris soal, tulis baris "Kunci: jawaban" (SAMA PERSIS dengan kunci di bagian D).
+- ESSAY (dari Uraian): tidak perlu baris Kunci.
+- Baris "Pembahasan: teks" WAJIB ada di tiap soal, ringkas 1-2 kalimat, isinya sesuai bagian E, tanpa tag HTML.
+- Pisahkan tiap soal dengan SATU baris kosong.
+
+Contoh format PERSIS yang harus diikuti:
+<pre id="cbt-export-data">
+1. [PG] Ibu kota Indonesia adalah ...
+A. Bandung
+*B. Jakarta
+C. Surabaya
+D. Medan
+Pembahasan: Jakarta adalah ibu kota Indonesia.
+
+2. [ISIAN] Hasil dari 12 x 12 adalah ...
+Kunci: 144
+Pembahasan: 12 x 12 = 144.
+</pre>`;
+
 export default function App() {
   const [mode, setMode] = useState(null); // null | 'akm' | 'tka'
 
@@ -251,6 +283,11 @@ export default function App() {
   const [tkaHistory, setTkaHistory] = useState([]);
   const resultRef = useRef(null);
 
+  // Teks "F. Data Ekspor CBT" hasil generate AKM/TKA (dipisah dari generatedHtml) — dipakai tombol
+  // "Ekspor Word (Format CBT)" agar hasil generate bisa langsung diupload ke mode Generator CBT.
+  const [cbtExportText, setCbtExportText] = useState('');
+  const [cbtExportMsg, setCbtExportMsg] = useState<{ type: 'ok' | 'bad' | 'warn'; text: string } | null>(null);
+
   // ===== State mode "Generator CBT" (upload naskah Word -> aplikasi ujian CBT HTML) =====
   const [cbtFileName, setCbtFileName] = useState('');
   const [cbtSoal, setCbtSoal] = useState<SoalParsed[]>([]);
@@ -278,6 +315,8 @@ export default function App() {
     setCbtSoal([]);
     setCbtParseMsg(null);
     setCbtGenMsg('');
+    setCbtExportText('');
+    setCbtExportMsg(null);
   };
 
   // ===== Handler mode "Generator CBT" =====
@@ -595,8 +634,9 @@ Format output yang WAJIB dipenuhi:
 (Tabel/Daftar Kunci Jawaban)
 <h2>E. Pembahasan</h2>
 (Penjelasan lengkap untuk masing-masing soal)
+${CBT_EXPORT_PROMPT_BLOCK}
 
-PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN membuat bagian "Analisis Soal" maupun "Pemeriksaan Kualitas Soal".
+PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN membuat bagian "Analisis Soal" maupun "Pemeriksaan Kualitas Soal".
 `;
   };
 
@@ -685,8 +725,9 @@ Format output yang WAJIB dipenuhi:
 (Tabel/Daftar Kunci Jawaban)
 <h2>E. Pembahasan</h2>
 (Penjelasan lengkap untuk masing-masing soal)
+${CBT_EXPORT_PROMPT_BLOCK}
 
-PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan proses internal Assessment Engine, JANGAN membuat bagian "Analisis Soal" maupun "Pemeriksaan Kualitas Soal" — validasi/QA dilakukan secara internal saja, bukan bagian output.
+PENTING: Output BERHENTI setelah bagian "F. Data Ekspor CBT". JANGAN menampilkan proses internal Assessment Engine, JANGAN membuat bagian "Analisis Soal" maupun "Pemeriksaan Kualitas Soal" — validasi/QA dilakukan secara internal saja, bukan bagian output.
 `;
   };
 
@@ -908,6 +949,21 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     return d.body.innerHTML;
   };
 
+  // Pisahkan bagian "F. Data Ekspor CBT" (<pre id="cbt-export-data">) dari HTML hasil generate AKM/TKA —
+  // dikembalikan terpisah (cbtText) sekaligus dibuang dari HTML yang ditampilkan/diekspor Word ke guru
+  // (blok itu cuma data internal utk fitur "Ekspor Word Format CBT", bukan konten yang perlu dibaca guru).
+  const extractAndStripCbtBlock = (html) => {
+    const d = new DOMParser().parseFromString(html, 'text/html');
+    const pre = d.querySelector('#cbt-export-data');
+    const cbtText = pre ? (pre.textContent || '').trim() : '';
+    if (pre) {
+      const heading = pre.previousElementSibling;
+      if (heading && /^H[1-4]$/.test(heading.tagName)) heading.remove();
+      pre.remove();
+    }
+    return { cleanedHtml: d.body.innerHTML, cbtText };
+  };
+
   // gambarMode: 'tidak' (tanpa gambar) | 'gambar' (auto-generate & tampil) | 'deskripsi' (teks prompt saja)
   // historyMode: 'akm' | 'tka' — menentukan riwayat anti-pengulangan mana yang diperbarui setelah sukses
   const runGeneration = async (promptText, gambarMode, historyMode) => {
@@ -915,6 +971,8 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     setIsGenerating(true);
     setLoadingStatus('Menyusun Asesmen...');
     setGeneratedHtml('');
+    setCbtExportText('');
+    setCbtExportMsg(null);
 
     // Bangun parts multimodal: teks prompt + gambar yang diupload guru (agar AI "melihat" gambar)
     const parts = [{ text: promptText }];
@@ -947,6 +1005,11 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
       textContent = cleanupMath(textContent);
       // Buang bagian Analisis Soal & Pemeriksaan Kualitas Soal bila masih muncul
       textContent = stripUnwantedSections(textContent);
+
+      // Pisahkan "F. Data Ekspor CBT" dari HTML yang akan ditampilkan/diekspor Word ke guru
+      const { cleanedHtml, cbtText } = extractAndStripCbtBlock(textContent);
+      textContent = cleanedHtml;
+      setCbtExportText(cbtText);
 
       // Sisipkan gambar upload guru ke penandanya (selalu, tak terpengaruh opsi gambar AI)
       textContent = await applyUserImages(textContent);
@@ -1161,6 +1224,38 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     URL.revokeObjectURL(url);
   };
 
+  // Ekspor hasil generate AKM/TKA (bagian "F. Data Ekspor CBT") jadi file .docx yang mengikuti
+  // konvensi format naskah Word Generator CBT — supaya bisa langsung diupload ke mode CBT.
+  const handleExportCbtWord = async () => {
+    if (!cbtExportText) return;
+    const lines = cbtExportText.split('\n');
+
+    // Validasi ringan: susun ulang jadi HTML per-paragraf (mirip hasil mammoth) lalu coba parsing
+    // dgn parser Generator CBT, supaya guru tahu lebih dulu apakah hasilnya akan terbaca dengan benar.
+    const escapeForPreview = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const fakeHtml = lines.map((l) => `<p>${escapeForPreview(l) || '&nbsp;'}</p>`).join('');
+    const parsed = parseSoalDariHtml(fakeHtml);
+    const invalidCount = parsed.filter((s) => !s.valid).length;
+
+    const doc = new Document({
+      sections: [{ children: lines.map((l) => new Paragraph(l)) }],
+    });
+    const blob = await Packer.toBlob(doc);
+    const safeName = (mode === 'tka' ? tkaData.mataPelajaran : formData.mataPelajaran || 'soal').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `soal-cbt-${safeName || 'soal'}.docx`;
+    a.click();
+
+    if (parsed.length === 0) {
+      setCbtExportMsg({ type: 'bad', text: 'File terunduh, tapi tidak ada soal terbaca. Cek manual sebelum diupload ke Generator CBT.' });
+    } else if (invalidCount > 0) {
+      setCbtExportMsg({ type: 'warn', text: `File terunduh: ${parsed.length} soal, ${invalidCount} bermasalah. Periksa & perbaiki di Word sebelum diupload ke Generator CBT.` });
+    } else {
+      setCbtExportMsg({ type: 'ok', text: `File terunduh: ${parsed.length} soal siap diupload langsung ke Generator CBT.` });
+    }
+  };
+
   // Panel Preview (kanan) — dipakai bersama oleh Generator AKM & Generator TKA
   const previewPanel = (
     <div className="lg:col-span-8 flex flex-col">
@@ -1206,8 +1301,40 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
               </svg>
               Download Word
             </button>
+
+            <button
+              onClick={handleExportCbtWord}
+              disabled={!cbtExportText || isGenerating}
+              title="Ekspor soal ini jadi file .docx yang bisa langsung diupload ke mode Generator CBT"
+              className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition ${
+                !cbtExportText || isGenerating
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2.5" y="4" width="19" height="13" rx="2"/>
+                <path d="M7 21h10M12 17v4"/>
+                <path d="M7 12.2l2.8-2.8 2 2L17 6"/>
+              </svg>
+              Ekspor Word (Format CBT)
+            </button>
           </div>
         </div>
+
+        {cbtExportMsg && (
+          <div
+            className={`mb-3 px-3 py-2 rounded-xl border text-sm font-medium ${
+              cbtExportMsg.type === 'ok'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : cbtExportMsg.type === 'bad'
+                ? 'bg-red-50 text-red-700 border-red-200'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}
+          >
+            {cbtExportMsg.text}
+          </div>
+        )}
 
         {imageFailures > 0 && (
           <div className="mb-3 p-3 bg-amber-50 text-amber-800 text-sm rounded-xl border border-amber-200">
