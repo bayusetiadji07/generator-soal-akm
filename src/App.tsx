@@ -166,6 +166,25 @@ const kelasToFase = (jenjang, kelas) => {
   return 'C';
 };
 
+// Blok instruksi gambar untuk prompt AKM & TKA (dipakai bersama supaya aturannya konsisten).
+// mode: 'tidak' | 'gambar' (dibuat otomatis & tampil) | 'deskripsi' (hanya teks deskripsi utk digambar manual)
+const buildGambarPromptBlock = (mode, jumlahSoal) => {
+  if (mode === 'tidak') {
+    return `  - GAMBAR FOTO: JANGAN gunakan tag <img> atau gambar foto sama sekali. Sebagai gantinya sajikan stimulus visual lewat tabel, grafik <svg>, atau deskripsi teks yang jelas.`;
+  }
+  const catatanMode = mode === 'deskripsi'
+    ? `Gambar TIDAK dibuat otomatis — isi data-prompt & data-datainfo akan ditampilkan sebagai KOTAK DESKRIPSI GAMBAR supaya guru membuat sendiri gambarnya di AI gambar lain. Karena itu deskripsi HARUS bisa berdiri sendiri: cukup lengkap sehingga siapa pun yang membacanya menghasilkan gambar yang benar-benar bisa dipakai menjawab soal, bukan sekadar gambar bertema mirip.`
+    : `Gambar dibuat otomatis dari isi data-prompt lalu langsung tampil di dokumen.`;
+  return `  - GAMBAR/ILUSTRASI SEBAGAI SUMBER DATA SOAL: ${catatanMode} Gunakan tag ini persis: <img class="generated-image" data-prompt="[PROMPT GAMBAR DALAM BAHASA INGGRIS]" data-datainfo="[BAHASA INDONESIA: data/objek apa saja yang WAJIB terlihat di gambar karena dipakai untuk menjawab soal, sebutkan angkanya]" src="https://via.placeholder.com/400x200?text=Memuat..." alt="Ilustrasi Soal" style="max-width: 100%; border-radius: 8px; margin: 10px 0;"/>. ATURAN KETAT:
+    (1) JUMLAH: dari total ${jumlahSoal} soal, PALING SEDIKIT 1 soal HARUS memakai gambar (jangan nol). Maksimal 2-3 soal saja, jangan setiap soal.
+    (2) WAJIB JADI ACUAN JAWABAN (PALING PENTING): gambar harus MEMUAT DATA/OBJEK yang dipakai siswa untuk menjawab — BUKAN hiasan/pelengkap bertema. Uji sendiri sebelum menulis: kalau gambarnya ditutup, soal itu HARUS jadi tidak terjawab atau ambigu. Kalau soal masih bisa dijawab penuh tanpa melihat gambar, JANGAN pakai gambar untuk soal itu (cukup tabel/SVG/teks).
+    (3) KONSISTEN DENGAN SOAL & PEMBAHASAN: setiap angka, jumlah, warna, ukuran, posisi, atau perbandingan yang disebut di pertanyaan/opsi/pembahasan HARUS benar-benar tergambar. Contoh BENAR: soal menanyakan "berapa apel yang tersisa?", data-prompt menyebut jumlah persisnya ("five red apples on a wooden table, two of them bitten"), dan pembahasan memakai angka yang sama. Contoh SALAH: seluruh data sudah ditulis lengkap di teks soal lalu gambar hanya "ilustrasi buah-buahan" — itu gambar pelengkap, DILARANG.
+    (4) data-datainfo WAJIB diisi Bahasa Indonesia, ringkas & konkret, menyebutkan data yang harus tampak beserta angkanya (mis. "5 apel merah di atas meja kayu; 2 di antaranya sudah digigit"), supaya guru bisa memeriksa/menggambar ulang dengan tepat.
+    (5) BATASAN TEKNIS: JANGAN minta gambar yang mengandung tulisan/angka tertulis, diagram berlabel, peta, grafik, rumus, atau anatomi detail — AI gambar tidak akurat untuk itu; kebutuhan seperti itu WAJIB pakai <svg>/tabel. Gambar hanya untuk objek/benda/pemandangan nyata sederhana yang bisa dihitung atau diamati langsung.
+    (6) GAYA: minta "simple flat illustration" atau "clean minimalist photo", "plain white or light background", "no clutter, no extra objects" — supaya objek yang dihitung/diamati jelas dan tidak tertukar.
+    (7) data-prompt ditulis Bahasa Inggris, konkret, SATU kalimat, TANPA teks/tulisan/angka di dalam gambar.`;
+};
+
 export default function App() {
   const [mode, setMode] = useState(null); // null | 'akm' | 'tka'
 
@@ -206,7 +225,7 @@ export default function App() {
     tipeTes: 'Ulangan Harian',
     jumlahSoal: 5,
     jumlahPilihan: '4',
-    sertakanGambar: false,
+    modeGambar: 'tidak', // 'tidak' | 'gambar' (auto-generate & tampil) | 'deskripsi' (teks prompt utk AI lain)
     bentukSoal: {
       pg: true,
       pgk: false,
@@ -432,8 +451,8 @@ export default function App() {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (type === 'checkbox' && name === 'sertakanGambar') {
-      setFormData(prev => ({ ...prev, sertakanGambar: checked }));
+    if (name === 'modeGambar') {
+      setFormData(prev => ({ ...prev, modeGambar: value }));
     } else if (name === 'fase') {
       // Ganti fase → reset kelas ke kelas pertama fase tersebut
       setFormData(prev => ({ ...prev, fase: value, kelas: FASE[value].kelas[0] }));
@@ -577,9 +596,7 @@ ${buildAntiRepetisi(akmHistory)}
   - TABEL, DATA STATISTIK & PERSENTASE: gunakan <table border="1" cellpadding="5"> berisi data yang realistis dan konsisten.
   - GRAFIK/DIAGRAM (batang, garis, lingkaran/pie): DILARANG dibuat sebagai gambar/foto. WAJIB dibuat sebagai kode <svg> inline yang valid dan akurat sesuai data — lengkap dengan sumbu, label, dan nilai yang terbaca jelas, lebar maksimal 480px. Bila relevan, sertakan juga tabel datanya.
   - INFOGRAFIS: kombinasikan tabel dan/atau <svg> sederhana dengan poin-poin teks ringkas yang tertata rapi.
-${formData.sertakanGambar
-  ? `  - GAMBAR/ILUSTRASI DESKRIPTIF: gunakan tag ini persis: <img class="generated-image" data-prompt="[PROMPT GAMBAR DALAM BAHASA INGGRIS]" src="https://via.placeholder.com/400x200?text=Memuat..." alt="Ilustrasi Soal" style="max-width: 100%; border-radius: 8px; margin: 10px 0;"/>. ATURAN KETAT agar gambar RELEVAN & AKURAT: (1) WAJIB (BUKAN opsional): dari total ${formData.jumlahSoal} soal, PALING SEDIKIT 1 soal HARUS memakai gambar ilustrasi — jangan sampai nol/tidak ada gambar sama sekali. Maksimal 2-3 soal saja yang pakai gambar, jangan setiap soal. (2) HANYA untuk objek/pemandangan/benda nyata yang sederhana dan umum (mis. "a glass of water", "a green leaf", "a wooden table with fruits"). (3) JANGAN minta gambar yang butuh ketepatan ilmiah/teknis (diagram berlabel, anatomi detail, peta, rumus, struktur kimia, grafik) — untuk itu pakai SVG/tabel/teks. (4) AKURASI WAJIB: data-prompt harus secara eksplisit menyebutkan SEMUA objek, jumlah, warna, posisi, dan detail spesifik yang disebut di teks soal/stimulus itu sendiri (contoh: jika soal menyebut "3 buah apel merah di atas meja kayu", prompt harus "three red apples on a wooden table", BUKAN deskripsi umum "fruits on a table") — supaya gambar cocok persis dengan yang ditanyakan, bukan sekadar mirip tema. (5) GAYA RINGAN: minta gaya "simple flat illustration" atau "clean minimalist photo", "plain white or light background", "no clutter, no extra objects" — supaya gambar sederhana, ukuran file kecil, dan cepat dibuat. (6) data-prompt harus deskriptif, konkret, dalam SATU kalimat singkat, dan TANPA teks/tulisan/angka di dalam gambar.`
-  : `  - GAMBAR FOTO: JANGAN gunakan tag <img> atau gambar foto sama sekali. Sebagai gantinya sajikan stimulus visual lewat tabel, grafik <svg>, atau deskripsi teks yang jelas.`}
+${buildGambarPromptBlock(formData.modeGambar, formData.jumlahSoal)}
 - FORMAT TIAP BENTUK SOAL (WAJIB dipatuhi agar tampilan jawaban benar):
   - Pilihan Ganda (PG): tepat SATU jawaban benar. Sediakan TEPAT ${formData.jumlahPilihan} opsi jawaban berlabel huruf. Tulis opsi sebagai <ol type="A"> dengan tiap opsi di <li> (jadi A sampai huruf ke-${formData.jumlahPilihan}). Pastikan pengecoh (distraktor) logis. Di bagian D. Kunci Jawaban, tulis HURUF kunci PERSIS sesuai posisi opsi yang isinya benar di bagian C. Soal (hitung ulang urutan A/B/C/... sebelum menulis kunci, JANGAN menebak).
   - Pilihan Ganda Kompleks (PGK): BISA LEBIH DARI SATU jawaban benar. Sediakan TEPAT ${formData.jumlahPilihan} opsi/pernyataan. WAJIB awali SETIAP opsi dengan kotak centang "☐ " (karakter U+2610 lalu spasi) agar siswa bisa menandai banyak jawaban. Susun sebagai daftar tanpa nomor, contoh: <ul style="list-style:none;padding-left:0"><li>☐ pernyataan pertama</li><li>☐ pernyataan kedua</li>...</ul>. Beri petunjuk singkat "(Pilih semua jawaban yang benar)". JANGAN gunakan A/B/C/D untuk PGK — karena opsi PGK TIDAK berlabel huruf, di bagian D. Kunci Jawaban WAJIB kutip ULANG teks pernyataan yang benar kata-per-kata persis sama dengan yang tertulis di C. Soal (JANGAN pakai huruf/nomor yang tidak ada).
@@ -667,9 +684,7 @@ ${buildAntiRepetisi(tkaHistory)}
   - GRAFIK/DIAGRAM (batang, garis, lingkaran/pie): DILARANG dibuat sebagai gambar/foto. WAJIB dibuat sebagai kode <svg> inline yang valid dan akurat sesuai data — lengkap dengan sumbu, label, dan nilai yang terbaca jelas, lebar maksimal 480px. Bila relevan, sertakan juga tabel datanya.
   - DENAH/PETA SEDERHANA (khusus Matematika, mis. soal jarak/skala/arah): WAJIB dibuat sebagai kode <svg> inline dengan label lokasi/jarak yang jelas dan akurat, BUKAN gambar/foto.
   - INFOGRAFIS: kombinasikan tabel dan/atau <svg> sederhana dengan poin-poin teks ringkas yang tertata rapi.
-${tkaData.modeGambar !== 'tidak'
-      ? `  - GAMBAR/ILUSTRASI DESKRIPTIF: gunakan tag ini persis: <img class="generated-image" data-prompt="[PROMPT GAMBAR DALAM BAHASA INGGRIS]" src="https://via.placeholder.com/400x200?text=Memuat..." alt="Ilustrasi Soal" style="max-width: 100%; border-radius: 8px; margin: 10px 0;"/>. ATURAN KETAT agar gambar RELEVAN & AKURAT: (1) WAJIB (BUKAN opsional): dari total ${tkaData.jumlahSoal} soal, PALING SEDIKIT 1 soal HARUS memakai gambar ilustrasi — jangan sampai nol/tidak ada gambar sama sekali. Maksimal 2-3 soal saja yang pakai gambar, jangan setiap soal. (2) HANYA untuk objek/pemandangan/benda nyata yang sederhana dan umum. (3) JANGAN minta gambar yang butuh ketepatan ilmiah/teknis (diagram berlabel, anatomi detail, peta, rumus, struktur kimia, grafik) — untuk itu pakai SVG/tabel/teks. (4) AKURASI WAJIB: data-prompt harus secara eksplisit menyebutkan SEMUA objek, jumlah, warna, posisi, dan detail spesifik yang disebut di teks soal/stimulus itu sendiri — supaya gambar cocok persis dengan yang ditanyakan, bukan sekadar mirip tema. (5) GAYA RINGAN: minta gaya "simple flat illustration" atau "clean minimalist photo", "plain white or light background", "no clutter, no extra objects" — supaya gambar sederhana, ukuran file kecil, dan cepat dibuat. (6) data-prompt harus deskriptif, konkret, dalam SATU kalimat singkat, dan TANPA teks/tulisan/angka di dalam gambar.`
-      : `  - GAMBAR FOTO: JANGAN gunakan tag <img> atau gambar foto sama sekali. Sebagai gantinya sajikan stimulus visual lewat tabel, grafik <svg>, atau deskripsi teks yang jelas.`}
+${buildGambarPromptBlock(tkaData.modeGambar, tkaData.jumlahSoal)}
 - FORMAT TIAP BENTUK SOAL (WAJIB dipatuhi agar tampilan jawaban benar):
   - Pilihan Ganda (PG): tepat SATU jawaban benar. Sediakan TEPAT ${tkaData.jumlahPilihan} opsi jawaban berlabel huruf. Tulis opsi sebagai <ol type="A"> dengan tiap opsi di <li> (jadi A sampai huruf ke-${tkaData.jumlahPilihan}). Pastikan pengecoh (distraktor) logis. Di bagian D. Kunci Jawaban, tulis HURUF kunci PERSIS sesuai posisi opsi yang isinya benar di bagian C. Soal (hitung ulang urutan A/B/C/... sebelum menulis kunci, JANGAN menebak).
   - Pilihan Ganda Kompleks (PGK): BISA LEBIH DARI SATU jawaban benar. Sediakan TEPAT ${tkaData.jumlahPilihan} opsi/pernyataan. WAJIB awali SETIAP opsi dengan kotak centang "☐ " (karakter U+2610 lalu spasi) agar siswa bisa menandai banyak jawaban. Susun sebagai daftar tanpa nomor, contoh: <ul style="list-style:none;padding-left:0"><li>☐ pernyataan pertama</li><li>☐ pernyataan kedua</li>...</ul>. Beri petunjuk singkat "(Pilih semua jawaban yang benar)". JANGAN gunakan A/B/C/D untuk PGK — karena opsi PGK TIDAK berlabel huruf, di bagian D. Kunci Jawaban WAJIB kutip ULANG teks pernyataan yang benar kata-per-kata persis sama dengan yang tertulis di C. Soal (JANGAN pakai huruf/nomor yang tidak ada).
@@ -904,11 +919,19 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     const d = new DOMParser().parseFromString(html, 'text/html');
     d.querySelectorAll('img[data-prompt]').forEach((img) => {
       const promptText = img.getAttribute('data-prompt') || '';
+      const dataInfo = img.getAttribute('data-datainfo') || '';
       const box = d.createElement('div');
       box.className = 'image-description';
       box.setAttribute('style', 'border:1px dashed #9ca3af;background:#f9fafb;padding:10px 14px;border-radius:8px;margin:10px 0;font-size:0.9em;color:#374151;');
-      box.innerHTML = '🖼️ <strong>Deskripsi Gambar</strong> (salin ke AI generator gambar lain, mis. Midjourney/DALL·E/Ideogram):<br/><em></em>';
+      // "Data yang wajib tampak" ditaruh paling atas: itu acuan guru memeriksa apakah gambar yang
+      // nanti dibuat benar-benar bisa dipakai menjawab soal (bukan sekadar gambar pelengkap).
+      box.innerHTML = '🖼️ <strong>Deskripsi Gambar</strong> (buat gambarnya di AI gambar lain, mis. Midjourney/DALL·E/Ideogram)'
+        + '<div class="datainfo" style="margin-top:6px"><strong>Data yang wajib tampak:</strong> <span></span></div>'
+        + '<div style="margin-top:6px"><strong>Prompt (EN):</strong> <em></em></div>';
       box.querySelector('em').textContent = promptText;
+      const infoWrap = box.querySelector('.datainfo');
+      if (dataInfo) infoWrap.querySelector('span').textContent = dataInfo;
+      else infoWrap.remove();
       img.replaceWith(box);
     });
     return d.body.innerHTML;
@@ -1020,7 +1043,7 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
       setError('Total persentase Tingkat Kesulitan harus persis 100%.');
       return;
     }
-    await runGeneration(generatePrompt(), formData.sertakanGambar ? 'gambar' : 'tidak', 'akm');
+    await runGeneration(generatePrompt(), formData.modeGambar, 'akm');
   };
 
   const handleGenerateTka = async (e) => {
@@ -2597,19 +2620,51 @@ Kunci: 144
                 </div>
 
                 <div className="rounded-xl border border-gray-200 p-3">
-                  <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="sertakanGambar"
-                      checked={formData.sertakanGambar}
-                      onChange={handleInputChange}
-                      className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
-                    />
-                    <span>
-                      <span className="font-medium">Sertakan gambar ilustrasi (AI)</span>
-                      <span className="block text-xs text-gray-500 mt-0.5">Default mati. Gambar AI gratis kadang kurang akurat/relevan. Tanpa gambar, stimulus tetap kaya lewat tabel, grafik, dan deskripsi.</span>
-                    </span>
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Gambar Ilustrasi Soal</label>
+                  <div className="space-y-1.5">
+                    <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="modeGambar"
+                        value="tidak"
+                        checked={formData.modeGambar === 'tidak'}
+                        onChange={handleInputChange}
+                        className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>
+                        <span className="font-medium">Tanpa gambar</span>
+                        <span className="block text-xs text-gray-500">Default. Stimulus tetap kaya lewat tabel, grafik, dan deskripsi.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="modeGambar"
+                        value="gambar"
+                        checked={formData.modeGambar === 'gambar'}
+                        onChange={handleInputChange}
+                        className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>
+                        <span className="font-medium">Gambar (auto-generate &amp; tampil)</span>
+                        <span className="block text-xs text-gray-500">Gambar AI gratis dibuat &amp; langsung tampil di dokumen. Kadang kurang akurat.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="modeGambar"
+                        value="deskripsi"
+                        checked={formData.modeGambar === 'deskripsi'}
+                        onChange={handleInputChange}
+                        className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>
+                        <span className="font-medium">Hanya deskripsi gambar</span>
+                        <span className="block text-xs text-gray-500">Tanpa gambar asli — tampil teks deskripsi untuk digenerate manual di AI gambar lain (Midjourney/DALL·E/dll).</span>
+                      </span>
+                    </label>
+                  </div>
                 </div>
 
                 <div className="rounded-xl border border-gray-200 p-3">
