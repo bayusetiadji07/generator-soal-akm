@@ -7,7 +7,7 @@
 // Respons dikonversi ke BENTUK YANG SAMA seperti Gemini (candidates[0].content.parts[0].text)
 // supaya kode frontend (fetchWithRetry, dst.) tidak perlu cabang logika terpisah per provider.
 
-import { verifyAccessForApi } from './_lib/access.js'
+import { verifyApprovedUser } from './_lib/auth.js'
 
 export const maxDuration = 60
 
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
 
   const body = req.body || {}
 
-  const access = await verifyAccessForApi(body.accessCode, body.deviceToken)
+  const access = await verifyApprovedUser(body.accessToken)
   if (!access.ok) {
     return res.status(access.status).json({ error: { message: access.message } })
   }

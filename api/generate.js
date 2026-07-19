@@ -4,7 +4,7 @@
 // Tahan banting: kalau model utama sedang overload (503) atau kena limit (429),
 // otomatis mencoba model cadangan secara berurutan.
 
-import { verifyAccessForApi } from './_lib/access.js'
+import { verifyApprovedUser } from './_lib/auth.js'
 
 export const maxDuration = 60
 
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
   // Gerbang kode akses: cek server-side (bukan cuma di tampilan) supaya kode yang dinonaktifkan
   // penjual benar-benar berhenti bisa memakai kuota AI berbayar ini.
-  const access = await verifyAccessForApi(body.accessCode, body.deviceToken)
+  const access = await verifyApprovedUser(body.accessToken)
   if (!access.ok) {
     return res.status(access.status).json({ error: { message: access.message } })
   }

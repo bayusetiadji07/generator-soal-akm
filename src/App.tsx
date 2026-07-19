@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { parseSoalDariHtml, validateSoal, type SoalParsed } from './cbtParser';
 import { buildCbtHtml } from './cbtTemplate';
 import { Document, Packer, Paragraph, ImageRun, Table, TableRow, TableCell } from 'docx';
-import { getStoredAccess, clearStoredAccess } from './AccessGate';
+import { supabase } from './supabaseClient';
 
 declare const mammoth: any;
 
@@ -757,7 +757,7 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     for (let i = 0; i < retries; i++) {
       try {
         const endpoint = aiProvider === 'deepseek' ? '/api/generate-deepseek' : '/api/generate';
-        const access = getStoredAccess();
+        const { data: sessionData } = await supabase.auth.getSession();
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
@@ -766,8 +766,7 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
           body: JSON.stringify({
             apiKey: apiKeySource === 'bawaan' ? '' : apiKey,
             payload,
-            accessCode: access?.code || '',
-            deviceToken: access?.deviceToken || '',
+            accessToken: sessionData.session?.access_token || '',
           })
         });
 
@@ -2286,8 +2285,8 @@ Kunci: 144
             )}
             <button
               type="button"
-              title="Keluar dari akses ini (perlu kode akses lagi utk masuk)"
-              onClick={() => { if (confirm('Keluar dari aplikasi? Anda perlu memasukkan kode akses lagi untuk masuk.')) { clearStoredAccess(); window.location.reload(); } }}
+              title="Keluar dari akun ini"
+              onClick={() => { if (confirm('Keluar dari aplikasi?')) { supabase.auth.signOut().then(() => window.location.reload()); } }}
               className="px-3 py-2 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-100 whitespace-nowrap"
             >
               Keluar

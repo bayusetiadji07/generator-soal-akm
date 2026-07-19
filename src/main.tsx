@@ -1,36 +1,36 @@
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
-import AccessGate, { getStoredAccess, clearStoredAccess, type AccessInfo } from './AccessGate'
+import AuthGate from './AuthGate'
+import PendingApproval from './PendingApproval'
+import AdminPanel from './AdminPanel'
+import { supabase } from './supabaseClient'
 import './index.css'
 
-// Gerbang kode akses sebelum masuk ke generator. Kalau ada sesi tersimpan, cek ulang diam-diam
-// ke server (supaya kode yang dinonaktifkan penjual langsung mengunci ulang aplikasi, bukan hanya
-// diblokir sekali saat login pertama).
+// Gerbang akses: signup/login pakai email (magic link, tanpa password) -> menunggu disetujui
+// admin (lihat AdminPanel.tsx, diakses lewat /admin) -> baru bisa masuk ke generator.
 function Root() {
-  const [status, setStatus] = useState<'checking' | 'locked' | 'unlocked'>('checking')
-  const [error, setError] = useState('')
+  const [status, setStatus] = useState<'checking' | 'signed-out' | 'pending' | 'approved'>('checking')
+  const [email, setEmail] = useState('')
+
+  const checkProfile = async (userId: string, userEmail: string) => {
+    const { data: profile } = await supabase.from('sigatot_profiles').select('is_approved').eq('id', userId).single()
+    setEmail(userEmail)
+    setStatus(profile?.is_approved ? 'approved' : 'pending')
+  }
 
   useEffect(() => {
-    const stored = getStoredAccess()
-    if (!stored) { setStatus('locked'); return }
-    fetch('/api/verify-access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: stored.code, deviceToken: stored.deviceToken }),
+    supabase.auth.getSession().then(({ data }) => {
+      const session = data.session
+      if (session?.user) checkProfile(session.user.id, session.user.email || '')
+      else setStatus('signed-out')
     })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.ok) { setStatus('unlocked'); return }
-        clearStoredAccess()
-        setError(data.message || 'Sesi akses Anda tidak lagi berlaku. Silakan masuk ulang.')
-        setStatus('locked')
-      })
-      .catch(() => {
-        // Gagal menghubungi server (mis. offline) — tetap izinkan pakai sesi lama supaya
-        // guru yang sedang mengerjakan sesuatu tidak tiba-tiba terkunci karena koneksi putus.
-        setStatus('unlocked')
-      })
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) checkProfile(session.user.id, session.user.email || '')
+      else setStatus('signed-out')
+    })
+    return () => sub.subscription.unsubscribe()
   }, [])
 
   if (status === 'checking') {
@@ -40,14 +40,15 @@ function Root() {
       </div>
     )
   }
-  if (status === 'locked') {
-    return <AccessGate initialError={error} onUnlocked={() => setStatus('unlocked')} />
-  }
+  if (status === 'signed-out') return <AuthGate />
+  if (status === 'pending') return <PendingApproval email={email} onApproved={() => setStatus('approved')} />
   return <App />
 }
 
+const isAdminRoute = typeof window !== 'undefined' && window.location.pathname.replace(/\/$/, '') === '/admin'
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Root />
+    {isAdminRoute ? <AdminPanel /> : <Root />}
   </React.StrictMode>,
 )
