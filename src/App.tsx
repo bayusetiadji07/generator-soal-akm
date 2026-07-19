@@ -598,7 +598,7 @@ Format output yang WAJIB dipenuhi:
 <h2>C. Soal</h2>
 (Tampilkan tiap soal lengkap dengan stimulus, pertanyaan, dan pilihan/area jawaban)
 <h2>D. Kunci Jawaban</h2>
-(WAJIB berupa daftar bernomor "1. ...", "2. ...", dst — SATU baris per nomor soal, PERSIS mengikuti nomor di bagian C, JANGAN pakai tabel/format lain. Untuk PG tulis hurufnya saja mis. "1. B", untuk PGK tulis semua huruf yang benar mis. "2. A, C", untuk Isian Singkat tulis jawabannya mis. "3. 144".)
+(WAJIB berupa daftar bernomor "1. ...", "2. ...", dst — SATU baris per nomor soal, PERSIS mengikuti nomor di bagian C, JANGAN pakai tabel/format lain. Untuk PG tulis hurufnya saja mis. "1. B", untuk PGK tulis semua huruf yang benar mis. "2. A, C", untuk Isian Singkat tulis jawabannya mis. "3. 144", untuk Benar-Salah tulis urut sesuai urutan pernyataan mis. "4. Benar, Salah, Benar", untuk Menjodohkan tulis pasangan nomor-huruf mis. "5. 1-C, 2-A, 3-B".)
 <h2>E. Pembahasan</h2>
 (WAJIB berupa daftar bernomor "1. ...", "2. ...", dst — SATU entri per nomor soal, PERSIS mengikuti nomor di bagian C, penjelasan ringkas 1-2 kalimat.)
 
@@ -688,7 +688,7 @@ Format output yang WAJIB dipenuhi:
 <h2>C. Soal</h2>
 (Tampilkan tiap soal lengkap dengan stimulus, pertanyaan, dan pilihan/area jawaban)
 <h2>D. Kunci Jawaban</h2>
-(WAJIB berupa daftar bernomor "1. ...", "2. ...", dst — SATU baris per nomor soal, PERSIS mengikuti nomor di bagian C, JANGAN pakai tabel/format lain. Untuk PG tulis hurufnya saja mis. "1. B", untuk PGK tulis semua huruf yang benar mis. "2. A, C", untuk Isian Singkat tulis jawabannya mis. "3. 144".)
+(WAJIB berupa daftar bernomor "1. ...", "2. ...", dst — SATU baris per nomor soal, PERSIS mengikuti nomor di bagian C, JANGAN pakai tabel/format lain. Untuk PG tulis hurufnya saja mis. "1. B", untuk PGK tulis semua huruf yang benar mis. "2. A, C", untuk Isian Singkat tulis jawabannya mis. "3. 144", untuk Benar-Salah tulis urut sesuai urutan pernyataan mis. "4. Benar, Salah, Benar", untuk Menjodohkan tulis pasangan nomor-huruf mis. "5. 1-C, 2-A, 3-B".)
 <h2>E. Pembahasan</h2>
 (WAJIB berupa daftar bernomor "1. ...", "2. ...", dst — SATU entri per nomor soal, PERSIS mengikuti nomor di bagian C, penjelasan ringkas 1-2 kalimat.)
 
@@ -1195,13 +1195,20 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     const kunciMap = extractNumberedTextMap(getSectionElements(d, /^D[.)]\s*Kunci|^Kunci Jawaban\b/i));
     const pembahasanMap = extractNumberedTextMap(getSectionElements(d, /^E[.)]\s*Pembahasan|^Pembahasan\b/i));
 
+    const bersihkanPenanda = (t) => (t || '').replace(/^\s*(?:\d{1,2}[.)]|[A-Ea-e][.)]|[-–•])\s*/, '').replace(/\s+/g, ' ').trim();
+
     const isBsTable = (table) => {
       const rows = Array.from(table.querySelectorAll('tr'));
       if (!rows.length) return false;
       const head = (rows[0].textContent || '').toLowerCase();
       return head.includes('benar') && head.includes('salah');
     };
-    const isMenjodohkan = (s) => /jodohkan|pasangkan|memasangkan/i.test(s.tanya || '');
+    // Tabel Menjodohkan: 2 kolom, kolom kiri pernyataan bernomor & kanan pilihan berhuruf
+    const isJodohTable = (table, tanya) => {
+      if (!/jodohkan|pasangkan|memasangkan/i.test(tanya || '')) return false;
+      const rows = Array.from(table.querySelectorAll('tr'));
+      return rows.length >= 2 && rows.every((tr) => tr.querySelectorAll('td,th').length === 2);
+    };
 
     const raw = [];
     let cur = null;
@@ -1216,9 +1223,13 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
 
       const nm = matchNomorAwal(text);
       const looksLikeOption = /^\*?\s*[A-E][.)]\s+/.test(text);
-      if (nm && !looksLikeOption) {
+      // Hanya paragraf/heading yang boleh MEMULAI soal baru. Tabel & daftar sering diawali angka
+      // ("1. Indonesia" di kolom kiri tabel menjodohkan) — kalau tidak dikecualikan, isi tabel
+      // malah dianggap soal baru dan soal aslinya jadi rusak.
+      const bisaMulaiSoal = tag !== 'table' && tag !== 'ol' && tag !== 'ul';
+      if (nm && !looksLikeOption && bisaMulaiSoal) {
         pushCur();
-        cur = { num: nm.num, tanya: nm.sisa, opsi: [], tabel: [], gambar: [...media], tipe: null, skip: false };
+        cur = { num: nm.num, tanya: nm.sisa, opsi: [], subItem: [], jodohKanan: [], tabel: [], gambar: [...media], tipe: null };
         continue;
       }
       if (!cur) continue;
@@ -1241,7 +1252,26 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
         continue;
       }
       if (tag === 'table') {
-        if (isBsTable(el)) { cur.skip = true; continue; }
+        const rows = Array.from(el.querySelectorAll('tr'));
+        if (isBsTable(el)) {
+          // Kolom pertama = pernyataan; jawabannya diambil dari bagian D (lihat di bawah)
+          cur.tipe = 'BS';
+          cur.subItem = rows.slice(1)
+            .map((tr) => bersihkanPenanda((tr.querySelector('td,th')?.textContent) || ''))
+            .filter(Boolean)
+            .map((teks) => ({ teks, jawab: '' }));
+          continue;
+        }
+        if (isJodohTable(el, cur.tanya)) {
+          cur.tipe = 'JODOH';
+          const body = rows.filter((tr) => {
+            const t = (tr.textContent || '').toLowerCase();
+            return !(tr.querySelectorAll('th').length && /pernyataan|pilihan|jawaban/.test(t) && tr.querySelectorAll('td').length === 0);
+          });
+          cur.subItem = body.map((tr) => ({ teks: bersihkanPenanda(tr.children[0]?.textContent || ''), jawab: '' })).filter((it) => it.teks);
+          cur.jodohKanan = body.map((tr) => bersihkanPenanda(tr.children[1]?.textContent || '')).filter(Boolean);
+          continue;
+        }
         cur.tabel.push(el.outerHTML);
         continue;
       }
@@ -1266,20 +1296,20 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     pushCur();
 
     return raw.map((s) => {
-      const tipe = s.skip || isMenjodohkan(s) ? 'SKIP' : (s.tipe || (s.opsi.length >= 2 ? 'PG' : 'ESSAY'));
+      const tipe = s.tipe || (s.opsi.length >= 2 ? 'PG' : 'ESSAY');
       const kunciRaw = (kunciMap[s.num] || '').trim();
       const soal = {
         nomorAsli: String(s.num),
-        tipe: tipe === 'SKIP' ? 'ESSAY' : tipe,
+        tipe,
         tanya: s.tanya.trim(),
         opsi: [],
+        subItem: [],
         kunciIsian: [],
         pembahasan: (pembahasanMap[s.num] || '').trim(),
         gambar: s.gambar.filter(Boolean),
         tabel: s.tabel,
         errors: [],
         valid: false,
-        skip: tipe === 'SKIP',
         kunciTidakTerbaca: false,
       };
       if (tipe === 'PG' || tipe === 'PGK') {
@@ -1300,9 +1330,24 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
         const bersih = kunciRaw.replace(/\(.*?\)/g, '').trim();
         soal.kunciIsian = bersih ? [bersih] : [];
         if (!bersih) soal.kunciTidakTerbaca = true;
+      } else if (tipe === 'BS') {
+        // Kunci BS di bagian D biasanya berurutan: "1) Benar, 2) Salah, 3) Benar" atau "B, S, B"
+        const tokens = Array.from(kunciRaw.matchAll(/\b(benar|salah|true|false|[BS])\b/gi))
+          .map((mm) => (/^(benar|true|B)$/i.test(mm[1]) ? 'BENAR' : 'SALAH'));
+        soal.subItem = s.subItem.map((it, idx) => ({ teks: it.teks, jawab: tokens[idx] || '' }));
+        if (tokens.length < s.subItem.length) soal.kunciTidakTerbaca = true;
+      } else if (tipe === 'JODOH') {
+        // Kunci Menjodohkan di bagian D biasanya "1-C, 2-A, 3-B" (nomor kiri -> huruf kolom kanan)
+        const pairs = Array.from(kunciRaw.matchAll(/(\d{1,2})\s*[-–—:=]\s*([A-Ea-e])/g))
+          .map((mm) => ({ kiri: parseInt(mm[1], 10), kanan: mm[2].toUpperCase().charCodeAt(0) - 65 }));
+        soal.subItem = s.subItem.map((it, idx) => {
+          const p = pairs.find((pp) => pp.kiri === idx + 1);
+          const jawab = p && s.jodohKanan[p.kanan] ? s.jodohKanan[p.kanan] : '';
+          return { teks: it.teks, jawab };
+        });
+        if (soal.subItem.some((it) => !it.jawab)) soal.kunciTidakTerbaca = true;
       }
       const validated = validateSoal(soal);
-      validated.skip = soal.skip;
       validated.kunciTidakTerbaca = soal.kunciTidakTerbaca;
       return validated;
     });
@@ -1441,10 +1486,9 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
   // kode — bukan minta AI menulis ulang — supaya jumlah & isinya selalu cocok dgn yang tampil di preview.
   const handleExportCbtWord = async () => {
     if (!generatedHtml) return;
-    const derived = await deriveCbtSoalFromGeneratedHtml(generatedHtml);
-    // Soal Benar-Salah/Menjodohkan memang tak didukung CBT → dilewati. Selain itu SEMUA soal ikut
-    // diekspor (termasuk yang kuncinya gagal terbaca) supaya jumlahnya tidak berkurang diam-diam.
-    const exported = derived.filter((s) => !s.skip);
+    // SEMUA soal ikut diekspor (termasuk yang kuncinya gagal terbaca) supaya jumlahnya tidak
+    // berkurang diam-diam — nomor yang bermasalah dilaporkan agar guru bisa perbaiki di Word.
+    const exported = await deriveCbtSoalFromGeneratedHtml(generatedHtml);
 
     let gambarCount = 0;
     const children = [];
@@ -1463,6 +1507,8 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
         });
       } else if (s.tipe === 'ISIAN') {
         children.push(new Paragraph(`Kunci: ${s.kunciIsian.join(' | ')}`));
+      } else if (s.tipe === 'BS' || s.tipe === 'JODOH') {
+        s.subItem.forEach((it) => children.push(new Paragraph(`- ${it.teks} | ${it.jawab}`)));
       }
       if (s.pembahasan) children.push(new Paragraph(`Pembahasan: ${s.pembahasan}`));
       children.push(new Paragraph(''));
@@ -1476,17 +1522,15 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     a.download = `soal-cbt-${safeName || 'soal'}.docx`;
     a.click();
 
-    const skipped = derived.filter((s) => s.skip);
     const perluCek = exported.filter((s) => s.kunciTidakTerbaca).map((s) => s.nomorAsli);
     const gambarNote = gambarCount > 0 ? ` (${gambarCount} gambar/grafik ikut disalin)` : '';
-    const skipNote = skipped.length ? ` ${skipped.length} soal Benar-Salah/Menjodohkan dilewati (tak didukung CBT).` : '';
 
     if (exported.length === 0) {
       setCbtExportMsg({ type: 'bad', text: `File terunduh, tapi tidak ada soal terbaca dari hasil generate. Coba generate ulang, atau susun naskah manual dengan template Generator CBT.` });
     } else if (perluCek.length) {
-      setCbtExportMsg({ type: 'warn', text: `File terunduh${gambarNote}: ${exported.length} soal.${skipNote} Kunci soal nomor ${perluCek.join(', ')} tidak terbaca otomatis — beri tanda * pada opsi yang benar (atau isi baris "Kunci:") di Word sebelum diupload.` });
+      setCbtExportMsg({ type: 'warn', text: `File terunduh${gambarNote}: ${exported.length} soal. Kunci soal nomor ${perluCek.join(', ')} tidak terbaca otomatis — lengkapi kuncinya di Word (tanda * pada opsi benar, atau isi setelah tanda "|") sebelum diupload.` });
     } else {
-      setCbtExportMsg({ type: 'ok', text: `File terunduh${gambarNote}: ${exported.length} soal siap diupload langsung ke Generator CBT.${skipNote}` });
+      setCbtExportMsg({ type: 'ok', text: `File terunduh${gambarNote}: ${exported.length} soal siap diupload langsung ke Generator CBT.` });
     }
   };
 
@@ -2012,9 +2056,17 @@ D. 6
 3. [ISIAN] Hasil dari 12 x 12 adalah ...
 Kunci: 144
 
-4. [ESSAY] Jelaskan proses terjadinya hujan!`}</pre>
+4. [BS] Tentukan Benar atau Salah.
+- Air membeku pada suhu 0°C | BENAR
+- Matahari mengelilingi Bumi | SALAH
+
+5. [JODOH] Pasangkan negara dengan ibu kotanya.
+- Indonesia | Jakarta
+- Jepang | Tokyo
+
+6. [ESSAY] Jelaskan proses terjadinya hujan!`}</pre>
           <p className="text-xs text-gray-500 mt-2">
-            Tanda "*" di depan huruf opsi menandai jawaban benar. "Kunci:" untuk isian bisa punya beberapa jawaban diterima, dipisah "|". "Pembahasan:" opsional. Gambar yang disisipkan di Word ikut terbawa otomatis. ESSAY dinilai manual oleh guru (tidak masuk skor otomatis).
+            Tanda "*" di depan huruf opsi menandai jawaban benar. "Kunci:" untuk isian bisa punya beberapa jawaban diterima, dipisah "|". Untuk BS (Benar-Salah) &amp; JODOH (Menjodohkan), tiap baris ditulis "pernyataan | jawaban". "Pembahasan:" opsional. Gambar &amp; tabel yang disisipkan di Word ikut terbawa otomatis. ESSAY dinilai manual oleh guru (tidak masuk skor otomatis).
           </p>
         </details>
       </div>
@@ -2156,6 +2208,15 @@ Kunci: 144
                 )}
                 {s.tipe === 'ISIAN' && (
                   <div className="text-emerald-700 font-semibold text-xs">Kunci: {s.kunciIsian.join(' | ')}</div>
+                )}
+                {(s.tipe === 'BS' || s.tipe === 'JODOH') && (
+                  <div className="space-y-0.5">
+                    {s.subItem.map((it, idx) => (
+                      <div key={idx} className="text-gray-600 pl-3">
+                        {idx + 1}. {it.teks} <span className="text-emerald-700 font-semibold">→ {it.jawab || '(kunci kosong)'}</span>
+                      </div>
+                    ))}
+                  </div>
                 )}
                 {s.tipe === 'ESSAY' && <div className="text-gray-500 text-xs">Dinilai manual oleh guru</div>}
                 {!s.valid && <div className="text-red-600 text-xs mt-1 font-medium">{s.errors.join(' ')}</div>}

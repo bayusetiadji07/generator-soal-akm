@@ -31,6 +31,8 @@ export function buildCbtHtml(config: CbtConfig, soalList: SoalParsed[]) {
       base.kunci = s.opsi.map((o, idx) => o.benar ? idx : -1).filter(idx => idx >= 0);
     } else if (s.tipe === 'ISIAN') {
       base.kunci = s.kunciIsian;
+    } else if (s.tipe === 'BS' || s.tipe === 'JODOH') {
+      base.item = (s.subItem || []).map(it => ({ teks: it.teks, jawab: it.jawab }));
     }
     return base;
   });
@@ -164,6 +166,14 @@ button{cursor:pointer;border:none;border-radius:9px;font-weight:700;font-size:14
 .tanya table{border-collapse:collapse;margin-top:10px;font-size:14px;width:100%;}
 .tanya table td,.tanya table th{border:1px solid var(--line);padding:6px 10px;text-align:left;}
 .tanya table th{background:var(--brand-tint);}
+.bs-table{border-collapse:collapse;width:100%;font-size:14.5px;margin-top:4px;}
+.bs-table td,.bs-table th{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:middle;}
+.bs-table th{background:var(--brand-tint);color:var(--brand-d);font-size:13px;}
+.bs-opt{display:flex;gap:14px;flex-wrap:wrap;}
+.bs-opt label{display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:600;}
+.bs-opt input{accent-color:var(--brand);}
+.jodoh-select{width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;}
+.jodoh-select:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(99,102,241,.14);}
 .opsi-list{display:flex;flex-direction:column;gap:9px;}
 .opsi{border:1.5px solid var(--line);border-radius:11px;padding:12px 15px;cursor:pointer;font-size:14.5px;display:flex;gap:11px;align-items:flex-start;transition:.15s;}
 .opsi:hover{border-color:var(--brand-2);background:#fafbff;}
@@ -194,7 +204,7 @@ textarea.essay-input:focus{outline:none;border-color:var(--brand-2);box-shadow:0
 
 const CBT_ENGINE_JS = `
 const \$ = sel => document.querySelector(sel);
-const W = { pg:1, pgk:2, isian:2 };
+const W = { pg:1, pgk:2, isian:2, bs:2, jodoh:2 };
 const SCRIPT_URL_KEY = 'cbt_gen_script_url';
 
 const state = { nama:'', sekolah:'', soal:[], jawaban:[], idx:0, timerId:null, sisaDetik:0, hasil:null };
@@ -223,6 +233,7 @@ function startTest(){
   if(CONFIG.acakSoal) soal = shuffle(soal);
   if(CONFIG.acakOpsi){
     soal = soal.map(s => {
+      if(s.tipe === 'bs' || s.tipe === 'jodoh') return {...s, item: shuffle(s.item)};
       if(s.tipe !== 'pg' && s.tipe !== 'pgk') return s;
       const order = shuffle(s.opsi.map((_,i)=>i));
       const opsi = order.map(i => s.opsi[i]);
@@ -230,8 +241,16 @@ function startTest(){
       return {...s, opsi, kunci};
     });
   }
+  // Menjodohkan: daftar pilihan jawaban = semua jawaban yang ada, diacak agar tidak sejajar urut
+  soal = soal.map(s => s.tipe==='jodoh'
+    ? {...s, pilihan: shuffle([...new Set(s.item.map(it => it.jawab))])}
+    : s);
   state.soal = soal;
-  state.jawaban = soal.map(s => s.tipe==='pgk' ? [] : null);
+  state.jawaban = soal.map(s => {
+    if(s.tipe==='pgk') return [];
+    if(s.tipe==='bs' || s.tipe==='jodoh') return new Array(s.item.length).fill(null);
+    return null;
+  });
   state.idx = 0;
   state.sisaDetik = CONFIG.durasiMenit * 60;
   showScreen('test');
@@ -273,6 +292,7 @@ function isAnswered(i){
   if(s.tipe==='pgk') return Array.isArray(j) && j.length>0;
   if(s.tipe==='isian') return !!(j && String(j).trim());
   if(s.tipe==='essay') return !!(j && String(j).trim());
+  if(s.tipe==='bs' || s.tipe==='jodoh') return Array.isArray(j) && j.some(v => v!=null && v!=='');
   return false;
 }
 
@@ -302,6 +322,26 @@ function renderSoal(){
   } else if(s.tipe==='essay'){
     html += '<div class="hint-tipe">Jawaban akan dinilai manual oleh guru.</div>';
     html += \`<textarea class="essay-input" id="essay-inp" placeholder="Tulis jawabanmu di sini...">\${state.jawaban[state.idx]?escapeHtml(state.jawaban[state.idx]):''}</textarea>\`;
+  } else if(s.tipe==='bs'){
+    html += '<div class="hint-tipe">Tentukan Benar atau Salah untuk setiap pernyataan.</div>';
+    const jw = state.jawaban[state.idx] || [];
+    html += '<table class="bs-table"><tr><th>Pernyataan</th><th style="width:150px">Jawaban</th></tr>';
+    s.item.forEach((it,i) => {
+      html += \`<tr><td>\${it.teks}</td><td><div class="bs-opt">
+        <label><input type="radio" name="bs\${i}" data-i="\${i}" value="BENAR" \${jw[i]==='BENAR'?'checked':''}> Benar</label>
+        <label><input type="radio" name="bs\${i}" data-i="\${i}" value="SALAH" \${jw[i]==='SALAH'?'checked':''}> Salah</label>
+      </div></td></tr>\`;
+    });
+    html += '</table>';
+  } else if(s.tipe==='jodoh'){
+    html += '<div class="hint-tipe">Pasangkan setiap pernyataan dengan jawaban yang tepat.</div>';
+    const jw = state.jawaban[state.idx] || [];
+    html += '<table class="bs-table"><tr><th>Pernyataan</th><th style="width:220px">Pasangan</th></tr>';
+    s.item.forEach((it,i) => {
+      const opts = s.pilihan.map(p => \`<option value="\${escapeHtml(p)}" \${jw[i]===p?'selected':''}>\${p}</option>\`).join('');
+      html += \`<tr><td>\${it.teks}</td><td><select class="jodoh-select" data-i="\${i}"><option value="">— pilih —</option>\${opts}</select></td></tr>\`;
+    });
+    html += '</table>';
   }
 
   card.innerHTML = html;
@@ -332,6 +372,20 @@ function attachSoalEvents(s){
   } else if(s.tipe==='essay'){
     const inp = \$('#essay-inp');
     inp.addEventListener('input', () => { state.jawaban[state.idx]=inp.value; renderNavGrid(); });
+  } else if(s.tipe==='bs'){
+    \$('#soal-card').querySelectorAll('input[type=radio]').forEach(inp => inp.addEventListener('change', () => {
+      const arr = state.jawaban[state.idx] || new Array(s.item.length).fill(null);
+      arr[+inp.dataset.i] = inp.value;
+      state.jawaban[state.idx] = arr;
+      renderNavGrid();
+    }));
+  } else if(s.tipe==='jodoh'){
+    \$('#soal-card').querySelectorAll('.jodoh-select').forEach(sel => sel.addEventListener('change', () => {
+      const arr = state.jawaban[state.idx] || new Array(s.item.length).fill(null);
+      arr[+sel.dataset.i] = sel.value || null;
+      state.jawaban[state.idx] = arr;
+      renderNavGrid();
+    }));
   }
 }
 
@@ -363,6 +417,19 @@ function scoreSoal(s,j){
     return { skor: match?W.isian:0, max:W.isian, status: match?'ok':(j?'bad':'kosong') };
   }
   if(s.tipe==='essay') return { skor:0, max:0, status: j?'manual':'kosong' };
+  // BS & Menjodohkan dinilai proporsional (skor sebagian bila hanya sebagian item yang benar)
+  if(s.tipe==='bs' || s.tipe==='jodoh'){
+    const w = s.tipe==='bs' ? W.bs : W.jodoh;
+    const arr = j || [];
+    let benar = 0, terisi = 0;
+    s.item.forEach((it,i) => {
+      if(arr[i]!=null && arr[i]!=='') terisi++;
+      if(arr[i]===it.jawab) benar++;
+    });
+    const skor = s.item.length ? (benar/s.item.length)*w : 0;
+    const status = benar===s.item.length ? 'ok' : (terisi===0 ? 'kosong' : (benar>0 ? 'partial' : 'bad'));
+    return { skor, max:w, status };
+  }
   return { skor:0, max:0, status:'kosong' };
 }
 
@@ -455,6 +522,15 @@ function renderReview(){
       html += \`<div class="rev-jwb"><b>Jawabanmu:</b> \${d.jawaban?escapeHtml(d.jawaban):'(kosong)'} &nbsp;|&nbsp; <b>Kunci:</b> \${s.kunci.join(' / ')}</div>\`;
     } else if(s.tipe==='essay'){
       html += \`<div class="rev-jwb"><b>Jawabanmu:</b><br>\${d.jawaban?escapeHtml(d.jawaban):'(kosong)'}</div>\`;
+    } else if(s.tipe==='bs' || s.tipe==='jodoh'){
+      const jwb = d.jawaban||[];
+      html += '<table class="bs-table"><tr><th>Pernyataan</th><th>Jawabanmu</th><th>Kunci</th></tr>';
+      html += s.item.map((it,idx) => {
+        const mine = jwb[idx];
+        const cocok = mine===it.jawab;
+        const warna = cocok ? 'var(--ok)' : 'var(--bad)';
+        return \`<tr><td>\${it.teks}</td><td style="color:\${warna};font-weight:700">\${mine?escapeHtml(mine):'(kosong)'}</td><td style="color:var(--ok);font-weight:700">\${escapeHtml(it.jawab)}</td></tr>\`;
+      }).join('') + '</table>';
     }
     if(s.pembahasan) html += \`<div class="rev-pemb"><b>Pembahasan:</b> \${s.pembahasan}</div>\`;
     box.innerHTML = html;

@@ -1,15 +1,17 @@
 // ===================== Parser Naskah Soal (docx -> struktur soal) =====================
 // Dipakai oleh mode "Generator CBT" di App.tsx.
 // Format yang dikenali per paragraf:
-//   "1. [PG] teks soal"      -> mulai soal baru, tipe PG/PGK/ISIAN/ESSAY
+//   "1. [PG] teks soal"      -> mulai soal baru, tipe PG/PGK/ISIAN/ESSAY/BS/JODOH
 //   "A. teks opsi" / "*A. teks opsi" (bintang = kunci benar) -> opsi PG/PGK
+//   "- pernyataan | BENAR"   -> baris anak Benar-Salah (BS)
+//   "- pernyataan | jawaban" -> baris anak Menjodohkan (JODOH)
 //   "Kunci: jawaban | alternatif"  -> kunci ISIAN (boleh beberapa dipisah "|")
 //   "Pembahasan: teks"        -> pembahasan (opsional, semua tipe)
 // Baris lain sebelum opsi/kunci/pembahasan pertama dianggap lanjutan teks soal (stimulus).
 // Baris polos setelah "Pembahasan:" dianggap lanjutan pembahasan.
 // Gambar yang disisipkan pada suatu paragraf ikut ditempel ke field yang sedang aktif.
 
-export type TipeSoal = 'PG' | 'PGK' | 'ISIAN' | 'ESSAY';
+export type TipeSoal = 'PG' | 'PGK' | 'ISIAN' | 'ESSAY' | 'BS' | 'JODOH';
 
 export interface OpsiSoal {
   teks: string;
@@ -17,11 +19,20 @@ export interface OpsiSoal {
   gambar?: string[];
 }
 
+// Baris anak untuk Benar-Salah & Menjodohkan: "pernyataan | jawaban"
+// BS   -> jawab 'BENAR' | 'SALAH'
+// JODOH-> jawab = teks pasangan yang benar
+export interface SubItemSoal {
+  teks: string;
+  jawab: string;
+}
+
 export interface SoalParsed {
   nomorAsli: string;
   tipe: TipeSoal;
   tanya: string;
   opsi: OpsiSoal[];
+  subItem: SubItemSoal[];
   kunciIsian: string[];
   pembahasan: string;
   gambar: string[];
@@ -34,10 +45,19 @@ export interface SoalParsed {
   kunciTidakTerbaca?: boolean;   // kunci gagal dicocokkan dari bagian D, perlu dicek guru
 }
 
-const RX_SOAL_START = /^(\d+)[.)]\s*\[(PG|PGK|ISIAN|ESSAY)\]\s*(.*)$/i;
+const RX_SOAL_START = /^(\d+)[.)]\s*\[(PG|PGK|ISIAN|ESSAY|BS|JODOH)\]\s*(.*)$/i;
 const RX_OPSI = /^(\*?)\s*([A-Ea-e])[.)]\s*(.*)$/;
 const RX_KUNCI = /^Kunci\s*:\s*(.*)$/i;
 const RX_PEMBAHASAN = /^Pembahasan\s*:\s*(.*)$/i;
+// Baris anak BS/JODOH: "- pernyataan | jawaban" (penanda depan boleh "-", "1.", "1)", atau kosong)
+const RX_SUBITEM = /^(?:[-–•*]\s*|\d{1,2}[.)]\s*)?(.+?)\s*\|\s*(.+?)\s*$/;
+
+const normalizeBenarSalah = (s: string) => {
+  const t = s.trim().toUpperCase();
+  if (/^(BENAR|B|TRUE|YA)$/.test(t)) return 'BENAR';
+  if (/^(SALAH|S|FALSE|TIDAK)$/.test(t)) return 'SALAH';
+  return '';
+};
 
 export function parseSoalDariHtml(htmlString: string): SoalParsed[] {
   const doc = new DOMParser().parseFromString(htmlString, 'text/html');
@@ -45,7 +65,7 @@ export function parseSoalDariHtml(htmlString: string): SoalParsed[] {
 
   const soalList: SoalParsed[] = [];
   let cur: SoalParsed | null = null;
-  let mode: 'tanya' | 'opsi' | 'kunci' | 'pembahasan' | null = null;
+  let mode: 'tanya' | 'opsi' | 'subitem' | 'kunci' | 'pembahasan' | null = null;
 
   function pushCur() {
     if (cur) {
@@ -80,6 +100,7 @@ export function parseSoalDariHtml(htmlString: string): SoalParsed[] {
         tipe: m[2].toUpperCase() as TipeSoal,
         tanya: m[3] || '',
         opsi: [],
+        subItem: [],
         kunciIsian: [],
         pembahasan: '',
         gambar: [],
@@ -92,6 +113,19 @@ export function parseSoalDariHtml(htmlString: string): SoalParsed[] {
       return;
     }
     if (!cur) return;
+
+    // Baris anak BS/JODOH dicek LEBIH DULU: "A. Ibu kota | Jakarta" juga cocok pola opsi biasa,
+    // jadi untuk kedua tipe ini pola "teks | jawaban" harus menang.
+    if ((cur.tipe === 'BS' || cur.tipe === 'JODOH') && (m = text.match(RX_SUBITEM))) {
+      const teks = (m[1] || '').trim();
+      const jawabRaw = (m[2] || '').trim();
+      const jawab = cur.tipe === 'BS' ? normalizeBenarSalah(jawabRaw) : jawabRaw;
+      if (teks && jawab) {
+        cur.subItem.push({ teks, jawab });
+        mode = 'subitem';
+        return;
+      }
+    }
 
     if ((m = text.match(RX_OPSI))) {
       cur.opsi.push({ teks: m[3] || '', benar: m[1] === '*' });
@@ -142,6 +176,12 @@ export function validateSoal(s: SoalParsed): SoalParsed {
     if (benar < 1) errors.push('PGK butuh minimal 1 opsi kunci bertanda *.');
   } else if (s.tipe === 'ISIAN') {
     if (s.kunciIsian.length === 0) errors.push('ISIAN butuh baris "Kunci: ...".');
+  } else if (s.tipe === 'BS') {
+    if (s.subItem.length < 2) errors.push('Benar-Salah butuh minimal 2 pernyataan berformat "pernyataan | BENAR/SALAH".');
+    else if (s.subItem.some((it) => it.jawab !== 'BENAR' && it.jawab !== 'SALAH')) errors.push('Jawaban Benar-Salah harus BENAR atau SALAH.');
+  } else if (s.tipe === 'JODOH') {
+    if (s.subItem.length < 2) errors.push('Menjodohkan butuh minimal 2 pasangan berformat "pernyataan | jawaban".');
+    else if (s.subItem.some((it) => !it.jawab)) errors.push('Ada pasangan Menjodohkan yang jawabannya kosong.');
   }
   s.errors = errors;
   s.valid = errors.length === 0;
