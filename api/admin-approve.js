@@ -26,17 +26,24 @@ export default async function handler(req, res) {
       'Content-Type': 'application/json',
     }
 
-    // Ambil data user dari auth.users
-    const userRes = await fetch(
-      `${SUPABASE_URL}/auth/v1/admin/users/${userId}`,
+    // Ambil semua user lalu filter berdasarkan ID
+    const usersRes = await fetch(
+      `${SUPABASE_URL}/auth/v1/admin/users?per_page=500`,
       { headers }
     )
 
-    if (!userRes.ok) {
+    if (!usersRes.ok) {
       return res.status(200).json({ ok: false, message: 'Gagal mengambil data user.' })
     }
 
-    const userData = await userRes.json()
+    const usersData = await usersRes.json()
+    const allUsers = usersData.users || []
+    const userData = allUsers.find(u => u.id === userId)
+
+    if (!userData) {
+      return res.status(200).json({ ok: false, message: 'User tidak ditemukan.' })
+    }
+
     const userEmail = userData.email
     const userName = userData.user_metadata?.nama || ''
 
@@ -59,7 +66,6 @@ export default async function handler(req, res) {
     let emailResult = null;
     if (approve && userEmail) {
       console.log('Sending invite to:', userEmail);
-      console.log('Redirect URL:', `${process.env.REDIRECT_URL || 'https://sigatot.vercel.app'}/set-password`);
 
       const inviteRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/invite`, {
         method: 'POST',
@@ -96,12 +102,6 @@ export default async function handler(req, res) {
       user: updateData?.[0] || { id: userId, is_approved: !!approve },
       emailSent: emailResult?.success || false,
       emailError: emailResult?.success ? null : (emailResult?.data?.msg || emailResult?.data?.message || 'Unknown error'),
-      debug: {
-        userEmail,
-        userName,
-        redirectUrl: `${process.env.REDIRECT_URL || 'https://sigatot.vercel.app'}/set-password`,
-        emailResultStatus: emailResult?.status,
-      }
     })
   } catch (err) {
     console.error('admin-approve error:', err)
