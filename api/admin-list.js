@@ -39,10 +39,10 @@ export default async function handler(req, res) {
     const usersData = await usersRes.json()
     const allAuthUsers = usersData.users || []
 
-    // Filter: hanya user email provider yang punya nama (daftar lewat Si Gatot)
+    // Filter: hanya user email provider yang punya app='sigatot' di metadata (daftar lewat Si Gatot)
     const siGatotAuthUsers = allAuthUsers.filter(u =>
       u.app_meta_data?.provider === 'email' &&
-      u.user_metadata?.nama
+      u.user_metadata?.app === 'sigatot'
     )
 
     if (siGatotAuthUsers.length === 0) {

@@ -53,7 +53,10 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
         email: email.trim(),
         password: password,
         options: {
-          data: { nama: nama.trim() },
+          data: {
+            nama: nama.trim(),
+            app: 'sigatot', // Tanda pengenal bahwa user ini dari aplikasi Si Gatot
+          },
         },
       });
 
