@@ -46,19 +46,21 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
     // Login berhasil - redirect handled by auth state change
   };
 
-  // Handle Register - daftar dengan nama + email saja (tanpa password)
+  // Handle Register - daftar dengan nama + email + password
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nama.trim()) { setError('Nama wajib diisi.'); return; }
     if (!email.trim()) { setError('Email wajib diisi.'); return; }
     if (!isValidEmail(email)) { setError('Format email tidak valid.'); return; }
+    if (password.length < 6) { setError('Password minimal 6 karakter.'); return; }
     setLoading(true);
     setError('');
 
     try {
-      // 1. Daftar user dengan email saja (tanpa password)
+      // 1. Daftar user dengan password
       const { error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
+        password: password,
         options: {
           data: {
             nama: nama.trim(),
@@ -77,7 +79,7 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
         return;
       }
 
-      // 2. Langsung buat profile di sigatot_profiles
+      // 2. Buat profile di sigatot_profiles
       const { data: sessionData } = await supabase.auth.getSession();
       if (sessionData?.user) {
         await supabase
@@ -239,6 +241,17 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Minimal 6 karakter"
+                autoComplete="new-password"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              />
+            </div>
 
             {error && (
               <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl border border-red-200">{error}</div>
@@ -247,7 +260,7 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
               <p className="text-blue-800 text-xs">
                 <strong>ℹ️ Info:</strong> Setelah daftar, akun Anda akan menunggu persetujuan admin.
-                Setelah disetujui, Anda akan mendapat email untuk membuat password.
+                Setelah disetujui, Anda bisa login dengan password ini.
               </p>
             </div>
 
