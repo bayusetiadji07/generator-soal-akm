@@ -62,38 +62,38 @@ export default async function handler(req, res) {
 
     const updateData = await updateRes.json().catch(() => null)
 
-    // Kirim invite email jika diapprove
+    // Kirim link reset password / OTP jika diapprove
     let emailResult = null;
     if (approve && userEmail) {
-      console.log('Sending invite to:', userEmail);
+      console.log('Sending OTP link to:', userEmail);
 
-      const inviteRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/invite`, {
+      // Kirim OTP untuk login (bukan invite karena user sudah ada)
+      const otpRes = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           email: userEmail,
-          data: { nama: userName, app: 'sigatot' },
           options: {
             email_redirect_to: `${process.env.REDIRECT_URL || 'https://sigatot.vercel.app'}/set-password`,
           }
         }),
       });
 
-      console.log('Invite response status:', inviteRes.status);
-      const inviteText = await inviteRes.text();
-      console.log('Invite response:', inviteText);
+      console.log('OTP response status:', otpRes.status);
+      const otpText = await otpRes.text();
+      console.log('OTP response:', otpText);
 
-      let inviteData;
+      let otpData;
       try {
-        inviteData = JSON.parse(inviteText);
+        otpData = JSON.parse(otpText);
       } catch {
-        inviteData = { raw: inviteText };
+        otpData = { raw: otpText };
       }
 
       emailResult = {
-        success: inviteRes.ok,
-        status: inviteRes.status,
-        data: inviteData,
+        success: otpRes.ok,
+        status: otpRes.status,
+        data: otpData,
       };
     }
 
