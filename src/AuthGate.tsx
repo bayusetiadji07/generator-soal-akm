@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { supabase } from './supabaseClient';
 
-// Halaman gerbang sebelum masuk ke generator — pembeli signup/login pakai email saja (link masuk
-// dikirim ke email, tanpa password), lalu menunggu disetujui admin (lihat AdminPanel.tsx).
-export default function AuthGate() {
+// Halaman gerbang sebelum masuk ke generator — form yang SAMA dipakai utk daftar (pertama kali)
+// MAUPUN masuk (sudah pernah daftar): isi email, dapat link masuk lewat email, tanpa password.
+// Lalu menunggu disetujui admin (lihat AdminPanel.tsx).
+export default function AuthGate({ initialError }: { initialError?: string }) {
   const [email, setEmail] = useState('');
   const [nama, setNama] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(initialError || '');
   const [sent, setSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,11 +57,12 @@ export default function AuthGate() {
       <div className="w-full max-w-sm bg-white rounded-2xl p-8 shadow-sm border border-gray-100 text-center">
         <img src="/logo-si-gatot.png" alt="Si Gatot" className="w-20 h-20 rounded-full shadow-inner object-cover mx-auto mb-4" />
         <h1 className="text-xl font-bold text-gray-900">Si Gatot</h1>
-        <p className="text-gray-400 text-sm mb-6">Sistem Generator Tes Otomatis</p>
+        <p className="text-gray-400 text-sm mb-1">Sistem Generator Tes Otomatis</p>
+        <p className="text-gray-500 text-xs mb-6">Masuk atau daftar — cukup satu form ini, tidak perlu password.</p>
 
         <form onSubmit={handleSubmit} className="space-y-3 text-left">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nama</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nama <span className="text-gray-400 font-normal">(diisi saat daftar pertama kali)</span></label>
             <input
               type="text"
               value={nama}
@@ -90,12 +92,12 @@ export default function AuthGate() {
             disabled={loading}
             className={`w-full py-3 rounded-xl font-medium text-white transition-all ${loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg'}`}
           >
-            {loading ? 'Mengirim...' : 'Kirim Link Masuk'}
+            {loading ? 'Mengirim...' : 'Kirim Link Masuk / Daftar'}
           </button>
         </form>
 
         <p className="text-xs text-gray-400 mt-5">
-          Pertama kali daftar? Isi email di atas — akun akan dibuat otomatis, lalu tunggu persetujuan admin sebelum bisa dipakai.
+          Sudah pernah daftar? Isi email yang sama di atas — link masuk baru akan dikirim lagi. Belum pernah? Isi nama &amp; email — akun dibuat otomatis, lalu tunggu persetujuan admin sebelum bisa dipakai.
         </p>
       </div>
     </div>
