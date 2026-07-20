@@ -1,7 +1,7 @@
 // Vercel Serverless Function — setujui/cabut akses satu akun. Dilindungi ADMIN_PASSWORD.
 // Ketika approve, akan mengirim email invite untuk membuat password.
 
-import { checkAdminPassword, setApproval, getProfile, getUserEmail, sendInviteEmail } from './_lib/auth.js'
+import { checkAdminPassword } from './_lib/auth.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -19,37 +19,70 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: false, message: 'userId wajib diisi.' })
     }
 
-    // Get user info before approval
-    let userEmail = null;
-    let userName = null;
-    if (approve) {
-      const profile = await getProfile(userId);
-      if (profile) {
-        userEmail = profile.email;
-        userName = profile.nama;
-      }
-      if (!userEmail) {
-        userEmail = await getUserEmail(userId);
-      }
+    const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wddfpmsurcftapbczise.supabase.co'
+    const headers = {
+      'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'Content-Type': 'application/json',
     }
 
-    // Update approval status in sigatot_profiles
-    const { row, error } = await setApproval(userId, !!approve)
-    if (error || !row) {
-      return res.status(200).json({ ok: false, message: 'Gagal memperbarui status akun.' })
+    // Ambil data user dari auth.users
+    const userRes = await fetch(
+      `${SUPABASE_URL}/auth/v1/admin/users/${userId}`,
+      { headers }
+    )
+
+    if (!userRes.ok) {
+      return res.status(200).json({ ok: false, message: 'Gagal mengambil data user.' })
     }
 
-    // Send invite email if approved
+    const userData = await userRes.json()
+    const userEmail = userData.email
+    const userName = userData.user_metadata?.nama || ''
+
+    // Update approval status di sigatot_profiles
+    const updateRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/sigatot_profiles?id=eq.${userId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...headers,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({ is_approved: !!approve, approved_at: approve ? new Date().toISOString() : null }),
+      }
+    )
+
+    const updateData = await updateRes.json().catch(() => null)
+
+    // Kirim invite email jika diapprove
     let emailResult = null;
     if (approve && userEmail) {
-      emailResult = await sendInviteEmail(userEmail, userName);
+      const inviteRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/invite`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          email: userEmail,
+          data: { nama: userName, app: 'sigatot' },
+          options: {
+            email_redirect_to: `${process.env.REDIRECT_URL || 'https://sigatot.vercel.app'}/set-password`,
+          }
+        }),
+      });
+
+      const inviteData = await inviteRes.json().catch(() => null);
+      emailResult = {
+        success: inviteRes.ok,
+        status: inviteRes.status,
+        data: inviteData,
+      };
     }
 
     return res.status(200).json({
       ok: true,
-      user: row,
+      user: updateData?.[0] || { id: userId, is_approved: !!approve },
       emailSent: emailResult?.success || false,
-      emailError: emailResult?.error || null
+      emailError: emailResult?.success ? null : (emailResult?.data?.msg || emailResult?.data?.message || 'Unknown error'),
     })
   } catch (err) {
     console.error('admin-approve error:', err)

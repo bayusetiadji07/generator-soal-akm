@@ -19,9 +19,11 @@ export default function SetPasswordPage() {
     const type = params.get('type');
     const emailParam = params.get('email');
 
+    console.log('SetPasswordPage: params', { token_hash: tokenHash, type, email: emailParam });
+
     if (!tokenHash) {
       setStatus('error');
-      setMessage('Link tidak valid atau sudah kedaluwarsa. Silakan minta link baru dari admin.');
+      setMessage('Link tidak valid atau sudah kedaluwarsa. Pastikan Anda mengklik link dari email yang dikirim admin.');
       return;
     }
 
@@ -59,12 +61,16 @@ export default function SetPasswordPage() {
         throw new Error('Token atau email tidak ditemukan. Silakan klik link dari email lagi.');
       }
 
+      console.log('Verifying OTP with:', { type: 'invite', email: emailParam, token: tokenHash });
+
       // Verify OTP token to complete the signup/invite
-      const { error: verifyError } = await supabase.auth.verifyOtp({
+      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
         type: 'invite',
         email: emailParam,
         token: tokenHash,
       });
+
+      console.log('Verify result:', { data: verifyData, error: verifyError });
 
       if (verifyError) {
         throw new Error(verifyError.message || 'Gagal memverifikasi token.');
@@ -74,6 +80,8 @@ export default function SetPasswordPage() {
       const { error: updateError } = await supabase.auth.updateUser({
         password: password,
       });
+
+      console.log('Update password result:', { error: updateError });
 
       if (updateError) {
         throw new Error(updateError.message || 'Gagal membuat password.');
@@ -88,6 +96,7 @@ export default function SetPasswordPage() {
       }, 3000);
 
     } catch (err: any) {
+      console.error('Set password error:', err);
       setStatus('ready');
       setError(err.message || 'Terjadi kesalahan. Silakan coba lagi.');
     } finally {
