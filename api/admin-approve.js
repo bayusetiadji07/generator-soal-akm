@@ -58,6 +58,9 @@ export default async function handler(req, res) {
     // Kirim invite email jika diapprove
     let emailResult = null;
     if (approve && userEmail) {
+      console.log('Sending invite to:', userEmail);
+      console.log('Redirect URL:', `${process.env.REDIRECT_URL || 'https://sigatot.vercel.app'}/set-password`);
+
       const inviteRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/invite`, {
         method: 'POST',
         headers,
@@ -70,7 +73,17 @@ export default async function handler(req, res) {
         }),
       });
 
-      const inviteData = await inviteRes.json().catch(() => null);
+      console.log('Invite response status:', inviteRes.status);
+      const inviteText = await inviteRes.text();
+      console.log('Invite response:', inviteText);
+
+      let inviteData;
+      try {
+        inviteData = JSON.parse(inviteText);
+      } catch {
+        inviteData = { raw: inviteText };
+      }
+
       emailResult = {
         success: inviteRes.ok,
         status: inviteRes.status,
@@ -83,6 +96,12 @@ export default async function handler(req, res) {
       user: updateData?.[0] || { id: userId, is_approved: !!approve },
       emailSent: emailResult?.success || false,
       emailError: emailResult?.success ? null : (emailResult?.data?.msg || emailResult?.data?.message || 'Unknown error'),
+      debug: {
+        userEmail,
+        userName,
+        redirectUrl: `${process.env.REDIRECT_URL || 'https://sigatot.vercel.app'}/set-password`,
+        emailResultStatus: emailResult?.status,
+      }
     })
   } catch (err) {
     console.error('admin-approve error:', err)

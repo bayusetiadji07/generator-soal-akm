@@ -48,7 +48,11 @@ export default function AdminPanel() {
       if (data.ok) {
         setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, is_approved: approve, approved_at: data.user.approved_at } : u)));
         if (approve) {
-          setNotification({ type: 'success', message: 'User berhasil disetujui! Invite email sudah dikirim.' });
+          if (data.emailSent) {
+            setNotification({ type: 'success', message: 'User berhasil disetujui! Invite email sudah dikirim.' });
+          } else {
+            setNotification({ type: 'error', message: 'User disetujui tapi gagal kirim email: ' + (data.emailError || 'Unknown error') });
+          }
         } else {
           setNotification({ type: 'success', message: 'Akses user berhasil dicabut.' });
         }
