@@ -3,19 +3,17 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import AuthGate from './AuthGate'
 import PendingApproval from './PendingApproval'
+import ConfirmationPage from './ConfirmationPage'
 import AdminPanel from './AdminPanel'
 import { supabase } from './supabaseClient'
 import './index.css'
 
-// Gerbang akses: signup/login pakai email (magic link, tanpa password) -> menunggu disetujui
-// admin (lihat AdminPanel.tsx, diakses lewat /admin) -> baru bisa masuk ke generator.
-// Kalau link email gagal/kadaluwarsa, Supabase redirect balik ke sini dengan
-// "#error=...&error_description=..." di hash — tanpa ini pesannya cuma diam saja dan
-// pengguna tidak tahu kenapa gagal.
-//
-// SENGAJA dieksekusi sekali di level modul (bukan di dalam useState initializer React) —
-// React StrictMode (mode dev) memanggil initializer dua kali; kalau efek samping "bersihkan
-// hash" ikut di dalamnya, panggilan kedua menemukan hash sudah kosong dan pesannya hilang.
+// Gerbang akses:
+// 1. User belum login -> AuthGate (Login / Register)
+// 2. User sudah daftar tapi belum disetujui -> PendingApproval (menunggu persetujuan)
+// 3. User klik link konfirmasi email -> ConfirmationPage
+// 4. User disetujui admin -> App (generator)
+
 const capturedAuthError: string = (() => {
   const hash = window.location.hash
   if (!hash || !hash.includes('error=')) return ''
@@ -62,10 +60,18 @@ function Root() {
   return <App />
 }
 
+// Check route
 const isAdminRoute = typeof window !== 'undefined' && window.location.pathname.replace(/\/$/, '') === '/admin'
+const isConfirmRoute = typeof window !== 'undefined' && window.location.pathname.replace(/\/$/, '') === '/confirm'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {isAdminRoute ? <AdminPanel /> : <Root />}
+    {isAdminRoute ? (
+      <AdminPanel />
+    ) : isConfirmRoute ? (
+      <ConfirmationPage />
+    ) : (
+      <Root />
+    )}
   </React.StrictMode>,
 )
