@@ -1,19 +1,19 @@
-// Vercel Serverless Function — setujui/cabut akses satu akun. Dilindungi ADMIN_PASSWORD.
-// Ketika approve, akan mengirim email invite untuk membuat password.
-
-import { checkAdminPassword } from './_lib/auth.js'
+// Vercel Serverless Function — setujui/cabut akses satu akun.
+// Buka: /api/admin-approve
 
 export default async function handler(req, res) {
+  if (req.method === 'OPTIONS') {
+    return res.status(200).json({})
+  }
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, message: 'Method not allowed' })
   }
+
   try {
-    const { password, userId, approve } = req.body || {}
-    if (!process.env.ADMIN_PASSWORD) {
-      return res.status(200).json({ ok: false, message: 'Server belum dikonfigurasi (ADMIN_PASSWORD belum diset).' })
-    }
-    if (!checkAdminPassword(password)) {
-      return res.status(401).json({ ok: false, message: 'Password admin salah.' })
+    const { userId, approve } = req.body || {}
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return res.status(200).json({ ok: false, message: 'SUPABASE_SERVICE_ROLE_KEY not set' })
     }
     if (!userId) {
       return res.status(200).json({ ok: false, message: 'userId wajib diisi.' })
