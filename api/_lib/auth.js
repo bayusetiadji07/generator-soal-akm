@@ -117,8 +117,6 @@ export async function getUserEmail(userId) {
 
 // Send invite email to user using Supabase Admin API
 export async function sendInviteEmail(userEmail, userName) {
-  const redirectTo = encodeURIComponent(process.env.SET_PASSWORD_URL || `${process.env.REDIRECT_URL || 'https://generator-soal-akm.vercel.app'}/set-password`);
-
   try {
     const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/invite`, {
       method: 'POST',
@@ -127,7 +125,7 @@ export async function sendInviteEmail(userEmail, userName) {
         email: userEmail,
         data: { nama: userName },
         options: {
-          email_redirect_to: `${process.env.REDIRECT_URL || 'https://generator-soal-akm.vercel.app'}/set-password`,
+          email_redirect_to: `${process.env.REDIRECT_URL || 'https://sigatot.vercel.app'}/set-password`,
         }
       }),
     });
