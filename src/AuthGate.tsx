@@ -48,28 +48,30 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
     setLoading(true);
     setError('');
 
-    // Cek apakah email sudah terdaftar
-    const { data: existingUser } = await supabase.rpc('get_user_by_email', { p_email: email.trim() }).catch(() => ({ data: null }));
+    try {
+      const { error: err } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password,
+        options: {
+          data: { nama: nama.trim() },
+        },
+      });
 
-    const { error: err } = await supabase.auth.signUp({
-      email: email.trim(),
-      password: password,
-      options: {
-        data: { nama: nama.trim() },
-      },
-    });
-
-    setLoading(false);
-    if (err) {
-      if (err.message.includes('already registered') || err.message.includes('already exists')) {
-        setError('Email ini sudah terdaftar. Silakan login.');
-      } else {
-        setError(err.message || 'Pendaftaran gagal. Coba lagi.');
+      setLoading(false);
+      if (err) {
+        if (err.message.includes('already registered') || err.message.includes('already exists') || err.message.includes('already been registered')) {
+          setError('Email ini sudah terdaftar. Silakan login.');
+        } else {
+          setError(err.message || 'Pendaftaran gagal. Coba lagi.');
+        }
+        return;
       }
-      return;
+      setSent(true);
+      setSentType('register');
+    } catch (err: any) {
+      setLoading(false);
+      setError(err.message || 'Terjadi kesalahan. Coba lagi.');
     }
-    setSent(true);
-    setSentType('register');
   };
 
   if (sent) {
