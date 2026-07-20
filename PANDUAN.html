@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panduan Si Gatot - Generator Soal Otomatis</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 11pt;
+      line-height: 1.6;
+      color: #1f2937;
+      background: #fff;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 50px;
+    }
+
+    @media print {
+      body {
+        padding: 20px 30px;
+        font-size: 10pt;
+      }
+      .page-break { page-break-before: always; }
+      .no-print { display: none !important; }
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-bottom: 30px;
+      border-bottom: 3px solid #2563eb;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border-radius: 16px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+
+    .header .subtitle {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    /* Sections */
+    h2 {
+      font-size: 18px;
+      color: #111827;
+      margin: 35px 0 15px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    h3 {
+      font-size: 14px;
+      color: #374151;
+      margin: 20px 0 10px;
+    }
+
+    h4 {
+      font-size: 12px;
+      color: #4b5563;
+      margin: 15px 0 8px;
+      font-weight: 600;
+    }
+
+    p {
+      margin-bottom: 10px;
+      text-align: justify;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      font-size: 10pt;
+    }
+
+    th, td {
+      border: 1px solid #d1d5db;
+      padding: 8px 10px;
+      text-align: left;
+    }
+
+    th {
+      background: #f3f4f6;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    /* Lists */
+    ul, ol {
+      margin: 10px 0 15px 25px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    /* Cards */
+    .card {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 15px 0;
+      background: #f9fafb;
+    }
+
+    .card-blue {
+      border-left: 4px solid #2563eb;
+      background: #eff6ff;
+    }
+
+    .card-green {
+      border-left: 4px solid #059669;
+      background: #ecfdf5;
+    }
+
+    .card-purple {
+      border-left: 4px solid #7c3aed;
+      background: #f5f3ff;
+    }
+
+    .card-amber {
+      border-left: 4px solid #d97706;
+      background: #fffbeb;
+    }
+
+    /* Step boxes */
+    .step {
+      display: flex;
+      margin: 15px 0;
+      gap: 15px;
+    }
+
+    .step-number {
+      width: 32px;
+      height: 32px;
+      background: #2563eb;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    .step-title {
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 5px;
+    }
+
+    /* Code blocks */
+    pre, code {
+      background: #1f2937;
+      color: #f9fafb;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 9pt;
+      border-radius: 6px;
+    }
+
+    pre {
+      padding: 15px;
+      margin: 10px 0;
+      overflow-x: auto;
+    }
+
+    code {
+      padding: 2px 6px;
+      font-size: 9pt;
+    }
+
+    pre code {
+      padding: 0;
+      background: none;
+    }
+
+    /* Tips & Warnings */
+    .tip {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-radius: 8px;
+      padding: 12px 15px;
+      margin: 15px 0;
+      font-size: 10pt;
+    }
+
+    .tip::before {
+      content: "💡 ";
+    }
+
+    .warning {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      padding: 12px 15px;
+      margin: 15px 0;
+      font-size: 10pt;
+    }
+
+    .warning::before {
+      content: "⚠️ ";
+    }
+
+    /* Feature badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 9pt;
+      font-weight: 500;
+      margin: 2px;
+    }
+
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-purple { background: #ede9fe; color: #5b21b6; }
+    .badge-amber { background: #fef3c7; color: #92400e; }
+
+    /* Checkbox list */
+    .checkbox-list {
+      list-style: none;
+      margin-left: 0;
+    }
+
+    .checkbox-list li::before {
+      content: "☐ ";
+      color: #6b7280;
+    }
+
+    .checkbox-list li.checked::before {
+      content: "☑ ";
+      color: #059669;
+    }
+
+    /* Generator cards */
+    .generator-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+
+    .generator-header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .generator-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 20px;
+    }
+
+    .icon-akm { background: #2563eb; }
+    .icon-tka { background: #059669; }
+    .icon-cbt { background: #7c3aed; }
+
+    /* Footer */
+    .footer {
+      margin-top: 50px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+      text-align: center;
+      color: #9ca3af;
+      font-size: 9pt;
+    }
+
+    /* Print button */
+    .print-btn {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+
+    .print-btn:hover {
+      background: #1d4ed8;
+    }
+
+    @media print {
+      .print-btn { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">SG</div>
+  <h1>PANDUAN PENGGUNAAN SI GATOT</h1>
+  <p class="subtitle">Sistem Generator Tes Otomatis Berbasis AI</p>
+</div>
+
+<!-- RINGKASAN -->
+<h2>📋 Ringkasan Fitur</h2>
+
+<table>
+  <tr>
+    <th>Generator</th>
+    <th>Fungsi</th>
+    <th>Jenjang</th>
+    <th>Mata Pelajaran</th>
+  </tr>
+  <tr>
+    <td><strong>Generator AKM</strong></td>
+    <td>Soal Literasi & Numerasi</td>
+    <td>SD, SMP, SMA/SMK (Fase A-F)</td>
+    <td>Semua Mapel</td>
+  </tr>
+  <tr>
+    <td><strong>Generator TKA</strong></td>
+    <td>Tes Kemampuan Akademik</td>
+    <td>SD & SMP (kelas 6 & 9)</td>
+    <td>Matematika, Bahasa Indonesia, Bahasa Inggris, IPA</td>
+  </tr>
+  <tr>
+    <td><strong>Generator CBT</strong></td>
+    <td>Ubah Word jadi Ujian Online</td>
+    <td>Semua</td>
+    <td>Semua Mapel</td>
+  </tr>
+</table>
+
+<!-- GENERATOR AKM -->
+<h2 class="page-break">1️⃣ Generator AKM</h2>
+
+<div class="card card-blue">
+  <h3>Apa itu Generator AKM?</h3>
+  <p>Generator soal <strong>Asesmen Kompetensi Minimum (AKM)</strong> berbasis <strong>Kurikulum Merdeka</strong>. Menghasilkan perangkat soal lengkap: Kisi-kisi, Soal, Kunci Jawaban, dan Pembahasan.</p>
+
+  <h4>Fitur Unggulan:</h4>
+  <span class="badge badge-blue">Semua Jenjang</span>
+  <span class="badge badge-green">Literasi & Numerasi</span>
+  <span class="badge badge-purple">Multi Bentuk Soal</span>
+  <span class="badge badge-amber">Gambar Ilustrasi</span>
+  <span class="badge badge-blue">Export Word & CBT</span>
+</div>
+
+<h3>Jenjang & Fase Kurikulum Merdeka</h3>
+<table>
+  <tr><th>Fase</th><th>Jenjang</th><th>Kelas</th></tr>
+  <tr><td>A</td><td>SD</td><td>1-2</td></tr>
+  <tr><td>B</td><td>SD</td><td>3-4</td></tr>
+  <tr><td>C</td><td>SD</td><td>5-6</td></tr>
+  <tr><td>D</td><td>SMP</td><td>7-8-9</td></tr>
+  <tr><td>E</td><td>SMA/SMK</td><td>10</td></tr>
+  <tr><td>F</td><td>SMA/SMK</td><td>11-12</td></tr>
+</table>
+
+<h3>Cara Penggunaan</h3>
+
+<div class="step">
+  <div class="step-number">1</div>
+  <div class="step-content">
+    <div class="step-title">Pilih Mata Pelajaran</div>
+    <p>Pilih mapel yang akan diuji (wajib diisi).</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">2</div>
+  <div class="step-content">
+    <div class="step-title">Pilih Fase & Kelas</div>
+    <p>Sesuaikan dengan jenjang siswa. Otomatis menentukan jenjang (SD/SMP/SMA).</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">3</div>
+  <div class="step-content">
+    <div class="step-title">Isi Materi & IKTP</div>
+    <p><strong>Materi</strong> (wajib): Topik yang akan diuji.<br>
+    <strong>IKTP</strong> (opsional): Indikator Ketercapaian Tujuan Pembelajaran.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">4</div>
+  <div class="step-content">
+    <div class="step-title">Pilih Jenis Tes</div>
+    <p>Pilih tipe asesmen: Ulangan Harian, PTS, PAS, Sumatif, AKM, atau OSN.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">5</div>
+  <div class="step-content">
+    <div class="step-title">Konfigurasi Soal</div>
+    <p><strong>Jumlah Soal:</strong> 1-50 soal<br>
+    <strong>Jumlah Pilihan:</strong> 2-5 opsi (untuk PG)<br>
+    <strong>Tingkat Kesulitan:</strong> Mudah, Sedang, Sulit (total harus 100%)</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">6</div>
+  <div class="step-content">
+    <div class="step-title">Pilih Bentuk Soal</div>
+    <ul class="checkbox-list">
+      <li class="checked">Pilihan Ganda (PG)</li>
+      <li>PG Kompleks (jawaban lebih dari satu)</li>
+      <li>Menjodohkan</li>
+      <li>Benar-Salah</li>
+      <li>Isian Singkat</li>
+      <li>Uraian</li>
+    </ul>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">7</div>
+  <div class="step-content">
+    <div class="step-title">Generate & Download</div>
+    <p>Klik <strong>Generate Soal</strong>, tunggu hasil, lalu download dalam format Word atau export ke CBT.</p>
+  </div>
+</div>
+
+<div class="tip">
+  <strong>Tips:</strong> Untuk hasil optimal, gunakan jumlah soal ≤15 per generate. Jumlah pilihan 4 opsi (A-D) adalah standar AKM nasional.
+</div>
+
+<!-- GENERATOR TKA -->
+<h2 class="page-break">2️⃣ Generator TKA</h2>
+
+<div class="card card-green">
+  <h3>Apa itu Generator TKA?</h3>
+  <p><strong>Tes Kemampuan Akademik (TKA)</strong> untuk <strong>akhir jenjang</strong> (Kelas 6 SD & Kelas 9 SMP). Dirancang mengikuti standar Asesmen Nasional dengan fokus HOTS.</p>
+
+  <h4>Fitur Unggulan:</h4>
+  <span class="badge badge-green">Akhir Jenjang</span>
+  <span class="badge badge-blue">Domain Kompetensi</span>
+  <span class="badge badge-purple">30+ Konteks</span>
+  <span class="badge badge-amber">HOTS</span>
+</div>
+
+<h3>Mata Pelajaran & Domain Kompetensi</h3>
+
+<table>
+  <tr><th>Mapel</th><th>Domain Kompetensi</th></tr>
+  <tr>
+    <td><strong>Matematika</strong></td>
+    <td>Knowing (Mengetahui), Applying (Menerapkan), Reasoning (Menalar)</td>
+  </tr>
+  <tr>
+    <td><strong>Bahasa Indonesia</strong></td>
+    <td>Pemahaman Literal, Inferensial, Evaluasi & Apresiasi</td>
+  </tr>
+  <tr>
+    <td><strong>Bahasa Inggris</strong></td>
+    <td>Literal, Inferential, Evaluation, Vocabulary, Main Idea, dll</td>
+  </tr>
+  <tr>
+    <td><strong>IPA</strong></td>
+    <td>Menjelaskan Fenomena, Menginterpretasi Data, Mengevaluasi Penyelidikan</td>
+  </tr>
+</table>
+
+<h3>Cara Penggunaan</h3>
+
+<div class="step">
+  <div class="step-number">1</div>
+  <div class="step-content">
+    <div class="step-title">Pilih Mata Pelajaran</div>
+    <p>Matematika, Bahasa Indonesia, Bahasa Inggris, atau IPA.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">2</div>
+  <div class="step-content">
+    <div class="step-title">Pilih Jenis Tes</div>
+    <p>Latihan TKA, Simulasi, Try Out, atau Pemetaan Kompetensi.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">3</div>
+  <div class="step-content">
+    <div class="step-title">Pilih Domain Kompetensi</div>
+    <p>Pilih minimal 1 domain yang akan diuji. Bisa pilih lebih dari satu.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">4</div>
+  <div class="step-content">
+    <div class="step-title">Pilih Kategori Materi</div>
+    <p>Pilih topik materi yang ingin diuji sesuai jenjang.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">5</div>
+  <div class="step-content">
+    <div class="step-title">Pilih Konteks Stimulus</div>
+    <p>Pilih konteks kehidupan nyata untuk stimulus soal (30+ pilihan): Sekolah, Keluarga, Kesehatan, Teknologi, Budaya, dll.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">6</div>
+  <div class="step-content">
+    <div class="step-title">Generate Soal</div>
+    <p>Klik Generate dan tunggu hasil perangkat soal TKA lengkap.</p>
+  </div>
+</div>
+
+<div class="warning">
+  <strong>Catatan:</strong> TKA selalu di akhir jenjang. Untuk SD = Kelas 6, untuk SMP = Kelas 9. Tidak perlu pilih kelas/semester.
+</div>
+
+<!-- GENERATOR CBT -->
+<h2 class="page-break">3️⃣ Generator CBT</h2>
+
+<div class="card card-purple">
+  <h3>Apa itu Generator CBT?</h3>
+  <p><strong>Computer-Based Test Generator</strong> - Mengubah naskah soal <strong>format Word (.docx)</strong> menjadi <strong>aplikasi ujian HTML</strong> yang siap dikerjakan siswa secara online maupun offline.</p>
+
+  <h4>Fitur Unggulan:</h4>
+  <span class="badge badge-purple">File HTML Mandiri</span>
+  <span class="badge badge-green">Offline Capable</span>
+  <span class="badge badge-blue">Acak Soal</span>
+  <span class="badge badge-amber">Timer Ujian</span>
+  <span class="badge badge-purple">Google Sheet</span>
+</div>
+
+<h3>Format Naskah Word yang Didukung</h3>
+
+<div class="card">
+  <h4>Format Pilihan Ganda:</h4>
+<pre><code>1. [PG] Pertanyaan pertama?
+A. Opsi A
+B. Opsi B
+C. Opsi C
+D. Opsi D
+
+2. [PG] Pertanyaan kedua?
+A. Opsi A
+*B. Opsi B (benar)
+C. Opsi C
+D. Opsi D</code></pre>
+</div>
+
+<div class="card">
+  <h4>Format PG Kompleks (jawaban lebih dari satu):</h4>
+<pre><code>3. [PGK] Pernyataan yang benar adalah?
+A. Pernyataan pertama
+B. Pernyataan kedua
+C. Pernyataan ketiga
+D. Pernyataan keempat
+*AB. A dan B benar
+*CD. C dan D benar</code></pre>
+</div>
+
+<div class="card">
+  <h4>Format Lainnya:</h4>
+<pre><code>4. [BS] Benar-Salah
+A. Pernyataan pertama
+B. Pernyataan kedua
+C. Pernyataan ketiga
+
+5. [ISIAN] Jawaban isian singkat?
+
+6. [JODOH] Menjodohkan
+1. Pernyataan satu → A
+2. Pernyataan dua → B
+3. Pernyataan tiga → C</code></pre>
+</div>
+
+<h3>Cara Penggunaan</h3>
+
+<div class="step">
+  <div class="step-number">1</div>
+  <div class="step-content">
+    <div class="step-title">Siapkan Naskah Word</div>
+    <p>Buat soal di Microsoft Word dengan format yang benar. Gunakan kurung siku [PG], [PGK], [BS], [ISIAN], [JODOH]. Tambahkan tanda * untuk opsi yang benar.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">2</div>
+  <div class="step-content">
+    <div class="step-title">Upload File</div>
+    <p>Klik area upload atau drag file .docx. Sistem akan otomatis memparsing soal.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">3</div>
+  <div class="step-content">
+    <div class="step-title">Konfigurasi Ujian</div>
+    <p><strong>Judul:</strong> Nama ujian<br>
+    <strong>Durasi:</strong> Waktu ujian dalam menit<br>
+    <strong>Acak:</strong> Centang untuk mengacak soal/opsi<br>
+    <strong>Google Sheet:</strong> (opsional) untuk simpan hasil otomatis</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">4</div>
+  <div class="step-content">
+    <div class="step-title">Generate CBT</div>
+    <p>Klik <strong>Generate & Unduh CBT.html</strong>. File siap dibagikan ke siswa.</p>
+  </div>
+</div>
+
+<div class="tip">
+  <strong>Tips:</strong> File CBT.html bisa dikirim via WhatsApp, email, atau diupload ke Google Classroom. Siswa cukup buka file di browser!
+</div>
+
+<!-- FAQ -->
+<h2 class="page-break">❓ Pertanyaan Umum (FAQ)</h2>
+
+<table>
+  <tr><th>Pertanyaan</th><th>Jawaban</th></tr>
+  <tr>
+    <td>Apakah perlu internet untuk mengerjakan ujian?</td>
+    <td>Tidak. File CBT.html bisa dibuka offline. Hanya butuh internet jika menggunakan sinkronisasi Google Sheet.</td>
+  </tr>
+  <tr>
+    <td>Berapa biaya penggunaan?</td>
+    <td>Biaya API Gemini/DeepSeek (gratis dengan batas tertentu). Tidak ada biaya tersembunyi.</td>
+  </tr>
+  <tr>
+    <td>Bisa buat soal bahasa Inggris?</td>
+    <td>Ya! Bahasa Inggris sudah didukung di Generator AKM dan TKA.</td>
+  </tr>
+  <tr>
+    <td>Apakah soal yang dihasilkan original?</td>
+    <td>Ya! AI menghasilkan soal baru setiap kali, tidak menyalin dari buku.</td>
+  </tr>
+  <tr>
+    <td>Bisa untuk OSN/Olimpiade?</td>
+    <td>Ya! Pilih jenis tes "Olimpiade/OSN" di Generator AKM untuk soal HOTS tingkat olimpiade.</td>
+  </tr>
+</table>
+
+<!-- TROUBLESHOOTING -->
+<h2>🔧 Troubleshotting</h2>
+
+<table>
+  <tr><th>Error</th><th>Solusi</th></tr>
+  <tr>
+    <td>"API Key belum diisi"</td>
+    <td>Pilih "API Key Sendiri (Custom)" dan tempel API key Anda dari aistudio.google.com/app/apikey</td>
+  </tr>
+  <tr>
+    <td>"Gambar gagal dibuat"</td>
+    <td>Tekan tombol "Muat Ulang Gambar" atau pilih mode "Tanpa gambar"</td>
+  </tr>
+  <tr>
+    <td>"Soal tidak terdeteksi"</td>
+    <td>Pastikan format: AWALAN NOMOR (1.), KURUNG SIKU ([PG]), OPSI (A. B. C. D.)</td>
+  </tr>
+  <tr>
+    <td>Login gagal terus</td>
+    <td>Pastikan email & password benar. Hubungi admin jika lupa password.</td>
+  </tr>
+</table>
+
+<!-- FOOTER -->
+<div class="footer">
+  <p>Panduan Si Gatot - Sistem Generator Tes Otomatis Berbasis AI</p>
+  <p>© 2026 | Dibuat dengan Gemini AI</p>
+</div>
+
+<!-- PRINT BUTTON -->
+<button class="print-btn" onclick="window.print()">🖨️ Cetak / Save as PDF</button>
+
+</body>
+</html>
