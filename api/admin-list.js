@@ -17,16 +17,17 @@ export default async function handler(req, res) {
       return res.status(401).json({ ok: false, message: 'Password admin salah.' })
     }
 
-    // Ambil user dari auth.users yang punya nama di metadata (berarti daftar lewat Si Gatot)
+    const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wddfpmsurcftapbczise.supabase.co'
+    const headers = {
+      'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'Content-Type': 'application/json',
+    }
+
+    // Ambil SEMUA user dari auth.users (bisa dapat semua aplikasi dalam project)
     const usersRes = await fetch(
-      `${process.env.SUPABASE_URL || 'https://wddfpmsurcftapbczise.supabase.co'}/auth/v1/admin/users?per_page=100`,
-      {
-        headers: {
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      }
+      `${SUPABASE_URL}/auth/v1/admin/users?per_page=100`,
+      { headers }
     )
 
     if (!usersRes.ok) {
@@ -38,48 +39,51 @@ export default async function handler(req, res) {
     const usersData = await usersRes.json()
     const allAuthUsers = usersData.users || []
 
-    // Filter: hanya user yang punya nama di metadata (daftar lewat Si Gatot)
-    const siGatotUserIds = allAuthUsers
-      .filter(u => u.raw_app_meta_data?.provider === 'email' && u.raw_user_meta_data?.nama)
-      .map(u => u.id)
+    // Filter: hanya user email provider yang punya nama (daftar lewat Si Gatot)
+    const siGatotAuthUsers = allAuthUsers.filter(u =>
+      u.app_meta_data?.provider === 'email' &&
+      u.user_metadata?.nama
+    )
 
-    if (siGatotUserIds.length === 0) {
+    if (siGatotAuthUsers.length === 0) {
       return res.status(200).json({ ok: true, users: [] })
     }
 
-    // Ambil profile dari sigatot_profiles untuk user-user Si Gatot
-    const idsQuery = siGatotUserIds.map(id => `id=eq.${id}`).join(',')
-    const profilesRes = await fetch(
-      `${process.env.SUPABASE_URL || 'https://wddfpmsurcftapbczise.supabase.co'}/rest/v1/sigatot_profiles?${idsQuery}&select=*&order=created_at.desc`,
-      {
-        headers: {
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    const userIds = siGatotAuthUsers.map(u => u.id)
 
-    if (!profilesRes.ok) {
-      return res.status(200).json({ ok: false, message: 'Gagal mengambil profil.' })
+    // Ambil profile dari sigatot_profiles
+    let profileMap = {}
+    try {
+      const idsQuery = userIds.map(id => `id=eq.${id}`).join('&')
+      const profilesRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/sigatot_profiles?${idsQuery}&select=*`,
+        { headers }
+      )
+      if (profilesRes.ok) {
+        const profiles = await profilesRes.json()
+        profiles.forEach(p => { profileMap[p.id] = p })
+      }
+    } catch (e) {
+      console.error('Failed to fetch profiles:', e)
     }
 
-    const profiles = await profilesRes.json()
-    const profileMap = {}
-    profiles.forEach(p => { profileMap[p.id] = p })
-
     // Gabungkan data auth.users dengan sigatot_profiles
-    const users = siGatotUserIds.map(id => {
-      const authUser = allAuthUsers.find(u => u.id === id)
-      const profile = profileMap[id]
+    const users = siGatotAuthUsers.map(authUser => {
+      const profile = profileMap[authUser.id]
       return {
-        id,
-        email: authUser?.email || profile?.email || '',
-        nama: authUser?.raw_user_meta_data?.nama || profile?.nama || '(tanpa nama)',
+        id: authUser.id,
+        email: authUser.email || profile?.email || '',
+        nama: authUser.user_metadata?.nama || profile?.nama || '(tanpa nama)',
         is_approved: profile?.is_approved || false,
-        created_at: profile?.created_at || authUser?.created_at || new Date().toISOString(),
+        created_at: profile?.created_at || authUser.created_at || new Date().toISOString(),
         approved_at: profile?.approved_at || null,
       }
+    })
+
+    // Urutkan: belum disetujui duluan, lalu sudah disetujui
+    users.sort((a, b) => {
+      if (a.is_approved !== b.is_approved) return a.is_approved ? 1 : -1
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     })
 
     return res.status(200).json({ ok: true, users })
