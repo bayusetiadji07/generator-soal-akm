@@ -4,7 +4,6 @@ import { supabase } from './supabaseClient';
 // Halaman waiting list - ditampilkan setelah user daftar & menunggu persetujuan admin
 export default function PendingApproval({ email, onApproved }: { email: string; onApproved: () => void }) {
   const [checking, setChecking] = useState(false);
-  const [showEmailInfo, setShowEmailInfo] = useState(false);
 
   const cekStatus = async () => {
     setChecking(true);
@@ -28,24 +27,34 @@ export default function PendingApproval({ email, onApproved }: { email: string; 
 
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Menunggu Persetujuan</h1>
         <p className="text-gray-600 text-sm mb-6">
-          Akun <b>{email}</b> sedang menunggu persetujuan dari admin.
+          Pendaftaran Anda dengan email <b>{email}</b> sedang menunggu persetujuan dari admin.
         </p>
 
-        {/* Info Box */}
+        {/* Info Box - Steps */}
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-left">
           <div className="flex items-start gap-3">
             <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-              <p className="text-blue-800 text-xs font-medium mb-2">Apa yang perlu dilakukan?</p>
-              <ol className="text-blue-700 text-xs space-y-1 list-decimal list-inside">
-                <li>Hubungi penjual tempat Anda membeli untuk mempercepat proses persetujuan.</li>
-                <li>Setelah disetujui, Anda akan mendapat <b>email konfirmasi</b>.</li>
-                <li>Buka email &amp; klik link konfirmasi untuk login.</li>
+              <p className="text-blue-800 text-xs font-medium mb-2">Alur Pendaftaran:</p>
+              <ol className="text-blue-700 text-xs space-y-1.5 list-decimal list-inside">
+                <li>Anda telah berhasil <b>mendaftar</b> ✓</li>
+                <li>Admin akan <b>menyetujui</b> pendaftaran Anda</li>
+                <li>Setelah disetujui, Anda akan mendapat <b>email invite</b></li>
+                <li>Klik link di email untuk <b>membuat password</b></li>
+                <li>Login dengan email &amp; password baru</li>
               </ol>
             </div>
           </div>
+        </div>
+
+        {/* Contact Info */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-left">
+          <p className="text-amber-800 text-xs">
+            <strong>💡 Butuh bantuan?</strong><br />
+            Hubungi penjual tempat Anda membeli untuk mempercepat proses persetujuan.
+          </p>
         </div>
 
         <button

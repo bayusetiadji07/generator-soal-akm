@@ -98,3 +98,50 @@ export async function setApproval(userId, approve) {
     return { error: `network_error: ${err?.message || err}` }
   }
 }
+
+// Get user email from auth.users table
+export async function getUserEmail(userId) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/auth/v1/admin/users/${userId}`,
+      { headers: serviceHeaders() }
+    )
+    if (!res.ok) return null
+    const user = await res.json()
+    return user?.email || null
+  } catch {
+    return null
+  }
+}
+
+// Send invite email to user using Supabase Admin API
+export async function sendInviteEmail(userEmail, userName) {
+  const redirectTo = encodeURIComponent(process.env.SET_PASSWORD_URL || `${process.env.REDIRECT_URL || 'https://generator-soal-akm.vercel.app'}/set-password`);
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/invite`, {
+      method: 'POST',
+      headers: serviceHeaders(),
+      body: JSON.stringify({
+        email: userEmail,
+        data: { nama: userName },
+        options: {
+          email_redirect_to: `${process.env.REDIRECT_URL || 'https://generator-soal-akm.vercel.app'}/set-password`,
+        }
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('Failed to send invite:', errorText);
+      return { success: false, error: errorText };
+    }
+
+    const data = await res.json();
+    return { success: true, user: data };
+  } catch (err) {
+    console.error('Error sending invite:', err);
+    return { success: false, error: err.message };
+  }
+}

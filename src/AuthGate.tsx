@@ -5,48 +5,67 @@ import { supabase } from './supabaseClient';
 export default function AuthGate({ initialError }: { initialError?: string }) {
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [nama, setNama] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError || '');
   const [sent, setSent] = useState(false);
   const [sentType, setSentType] = useState<'login' | 'register'>('login');
 
+  // Handle Login dengan email + password
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) { setError('Email wajib diisi.'); return; }
+    if (!password.trim()) { setError('Password wajib diisi.'); return; }
     setLoading(true);
     setError('');
-    const { error: err } = await supabase.auth.signInWithOtp({
+
+    const { error: err } = await supabase.auth.signInWithPassword({
       email: email.trim(),
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
+      password: password,
     });
+
     setLoading(false);
     if (err) {
-      setError(err.message || 'Gagal mengirim link masuk. Coba lagi.');
+      if (err.message.includes('Invalid login credentials')) {
+        setError('Email atau password salah.');
+      } else if (err.message.includes('Email not confirmed')) {
+        setError('Email belum dikonfirmasi. Hubungi admin untuk mengaktifkan akun.');
+      } else {
+        setError(err.message || 'Login gagal. Coba lagi.');
+      }
       return;
     }
-    setSent(true);
-    setSentType('login');
+    // Login berhasil - redirect handled by auth state change
   };
 
+  // Handle Register - signup dengan email + password
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nama.trim()) { setError('Nama wajib diisi.'); return; }
     if (!email.trim()) { setError('Email wajib diisi.'); return; }
+    if (password.length < 6) { setError('Password minimal 6 karakter.'); return; }
     setLoading(true);
     setError('');
-    const { error: err } = await supabase.auth.signInWithOtp({
+
+    // Cek apakah email sudah terdaftar
+    const { data: existingUser } = await supabase.rpc('get_user_by_email', { p_email: email.trim() }).catch(() => ({ data: null }));
+
+    const { error: err } = await supabase.auth.signUp({
       email: email.trim(),
+      password: password,
       options: {
         data: { nama: nama.trim() },
-        emailRedirectTo: `${window.location.origin}/confirm`,
       },
     });
+
     setLoading(false);
     if (err) {
-      setError(err.message || 'Gagal mendaftar. Coba lagi.');
+      if (err.message.includes('already registered') || err.message.includes('already exists')) {
+        setError('Email ini sudah terdaftar. Silakan login.');
+      } else {
+        setError(err.message || 'Pendaftaran gagal. Coba lagi.');
+      }
       return;
     }
     setSent(true);
@@ -71,8 +90,8 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
               <>Link masuk sudah dikirim ke <b>{email}</b>. Buka email itu &amp; klik link-nya untuk masuk.</>
             ) : (
               <>
-                Kami telah mengirim link konfirmasi ke <b>{email}</b>. <br />
-                Buka email tersebut dan klik link konfirmasi untuk melanjutkan.
+                Kami telah menerima pendaftaran Anda dengan email <b>{email}</b>. <br />
+                Mohon tunggu persetujuan dari admin. Anda akan mendapat notifikasi setelah akun disetujui.
               </>
             )}
           </p>
@@ -83,7 +102,7 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
           </div>
           <button
             type="button"
-            onClick={() => { setSent(false); setEmail(''); setNama(''); }}
+            onClick={() => { setSent(false); setEmail(''); setNama(''); setPassword(''); }}
             className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
           >
             {isLogin ? 'Kirim ulang / ganti email' : 'Daftar dengan email lain'}
@@ -139,6 +158,17 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Masukkan password"
+                autoComplete="current-password"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              />
+            </div>
 
             {error && (
               <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl border border-red-200">{error}</div>
@@ -151,7 +181,7 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
                 loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg'
               }`}
             >
-              {loading ? 'Mengirim...' : 'Kirim Link Masuk'}
+              {loading ? 'Memproses...' : 'Masuk'}
             </button>
 
             <p className="text-xs text-gray-400 text-center mt-4">
@@ -187,6 +217,17 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Minimal 6 karakter"
+                autoComplete="new-password"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              />
+            </div>
 
             {error && (
               <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl border border-red-200">{error}</div>
@@ -195,7 +236,7 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
               <p className="text-blue-800 text-xs">
                 <strong>ℹ️ Info:</strong> Setelah daftar, akun Anda akan menunggu persetujuan admin.
-                Anda akan mendapat email konfirmasi setelah akun disetujui.
+                Password hanya akan aktif setelah admin menyetujui pendaftaran Anda.
               </p>
             </div>
 

@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import AuthGate from './AuthGate'
 import PendingApproval from './PendingApproval'
-import ConfirmationPage from './ConfirmationPage'
+import SetPasswordPage from './SetPasswordPage'
 import AdminPanel from './AdminPanel'
 import { supabase } from './supabaseClient'
 import './index.css'
@@ -11,8 +11,8 @@ import './index.css'
 // Gerbang akses:
 // 1. User belum login -> AuthGate (Login / Register)
 // 2. User sudah daftar tapi belum disetujui -> PendingApproval (menunggu persetujuan)
-// 3. User klik link konfirmasi email -> ConfirmationPage
-// 4. User disetujui admin -> App (generator)
+// 3. User klik link invite dari email -> SetPasswordPage (buat password)
+// 4. User disetujui admin & sudah buat password -> App (generator)
 
 const capturedAuthError: string = (() => {
   const hash = window.location.hash
@@ -61,15 +61,16 @@ function Root() {
 }
 
 // Check route
-const isAdminRoute = typeof window !== 'undefined' && window.location.pathname.replace(/\/$/, '') === '/admin'
-const isConfirmRoute = typeof window !== 'undefined' && window.location.pathname.replace(/\/$/, '') === '/confirm'
+const path = typeof window !== 'undefined' ? window.location.pathname.replace(/\/$/, '') : ''
+const isAdminRoute = path === '/admin'
+const isSetPasswordRoute = path === '/set-password'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     {isAdminRoute ? (
       <AdminPanel />
-    ) : isConfirmRoute ? (
-      <ConfirmationPage />
+    ) : isSetPasswordRoute ? (
+      <SetPasswordPage />
     ) : (
       <Root />
     )}
