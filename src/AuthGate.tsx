@@ -46,22 +46,19 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
     // Login berhasil - redirect handled by auth state change
   };
 
-  // Handle Register - signup dengan email + password
+  // Handle Register - daftar dengan nama + email saja (tanpa password)
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEmailError('');
     if (!nama.trim()) { setError('Nama wajib diisi.'); return; }
     if (!email.trim()) { setError('Email wajib diisi.'); return; }
     if (!isValidEmail(email)) { setError('Format email tidak valid.'); return; }
-    if (password.length < 6) { setError('Password minimal 6 karakter.'); return; }
     setLoading(true);
     setError('');
 
     try {
-      // 1. Sign up user
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      // 1. Daftar user dengan email saja (tanpa password)
+      const { error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
-        password: password,
         options: {
           data: {
             nama: nama.trim(),
@@ -81,22 +78,18 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
       }
 
       // 2. Langsung buat profile di sigatot_profiles
-      if (signUpData.user) {
-        const { error: profileError } = await supabase
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.user) {
+        await supabase
           .from('sigatot_profiles')
           .upsert({
-            id: signUpData.user.id,
+            id: sessionData.user.id,
             email: email.trim(),
             nama: nama.trim(),
             is_approved: false,
           }, {
             onConflict: 'id'
           });
-
-        if (profileError) {
-          console.error('Gagal membuat profile:', profileError);
-          // Tidak block flow, lanjutkan saja
-        }
       }
 
       setLoading(false);
@@ -243,17 +236,6 @@ export default function AuthGate({ initialError }: { initialError?: string }) {
                 onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
                 placeholder="email@anda.com"
                 autoComplete="email"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Minimal 6 karakter"
-                autoComplete="new-password"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
               />
             </div>
