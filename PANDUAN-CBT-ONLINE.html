@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panduan Lengkap CBT Online - Si Gatot</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 11pt;
+      line-height: 1.7;
+      color: #1f2937;
+      background: #fff;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 50px;
+    }
+
+    @media print {
+      body {
+        padding: 20px 30px;
+        font-size: 10pt;
+      }
+      .page-break { page-break-before: always; }
+      .no-print { display: none !important; }
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-bottom: 30px;
+      border-bottom: 3px solid #059669;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #059669, #047857);
+      border-radius: 16px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+
+    .header .subtitle {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    /* Sections */
+    h2 {
+      font-size: 18px;
+      color: #111827;
+      margin: 35px 0 15px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #059669;
+    }
+
+    h3 {
+      font-size: 14px;
+      color: #374151;
+      margin: 20px 0 10px;
+    }
+
+    h4 {
+      font-size: 12px;
+      color: #4b5563;
+      margin: 15px 0 8px;
+      font-weight: 600;
+    }
+
+    p {
+      margin-bottom: 10px;
+      text-align: justify;
+    }
+
+    /* Cards */
+    .card {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 15px 0;
+      background: #f9fafb;
+    }
+
+    .card-green {
+      border-left: 4px solid #059669;
+      background: #ecfdf5;
+    }
+
+    .card-blue {
+      border-left: 4px solid #2563eb;
+      background: #eff6ff;
+    }
+
+    .card-purple {
+      border-left: 4px solid #7c3aed;
+      background: #f5f3ff;
+    }
+
+    .card-amber {
+      border-left: 4px solid #d97706;
+      background: #fffbeb;
+    }
+
+    .card-red {
+      border-left: 4px solid #dc2626;
+      background: #fef2f2;
+    }
+
+    /* Step boxes */
+    .step {
+      display: flex;
+      margin: 15px 0;
+      gap: 15px;
+    }
+
+    .step-number {
+      width: 32px;
+      height: 32px;
+      background: #059669;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    .step-title {
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 5px;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      font-size: 10pt;
+    }
+
+    th, td {
+      border: 1px solid #d1d5db;
+      padding: 8px 10px;
+      text-align: left;
+    }
+
+    th {
+      background: #f3f4f6;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    /* Lists */
+    ul, ol {
+      margin: 10px 0 15px 25px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    /* Code blocks */
+    pre, code {
+      background: #1f2937;
+      color: #f9fafb;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 9pt;
+      border-radius: 6px;
+    }
+
+    pre {
+      padding: 15px;
+      margin: 10px 0;
+      overflow-x: auto;
+    }
+
+    code {
+      padding: 2px 6px;
+      font-size: 9pt;
+    }
+
+    pre code {
+      padding: 0;
+      background: none;
+    }
+
+    /* Tips & Warnings */
+    .tip {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-radius: 8px;
+      padding: 12px 15px;
+      margin: 15px 0;
+      font-size: 10pt;
+    }
+
+    .tip::before {
+      content: "💡 ";
+      font-weight: bold;
+    }
+
+    .warning {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      padding: 12px 15px;
+      margin: 15px 0;
+      font-size: 10pt;
+    }
+
+    .warning::before {
+      content: "⚠️ ";
+      font-weight: bold;
+    }
+
+    .important {
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      padding: 12px 15px;
+      margin: 15px 0;
+      font-size: 10pt;
+    }
+
+    .important::before {
+      content: "❗ ";
+      font-weight: bold;
+    }
+
+    /* Feature badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 9pt;
+      font-weight: 500;
+      margin: 2px;
+    }
+
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-purple { background: #ede9fe; color: #5b21b6; }
+    .badge-amber { background: #fef3c7; color: #92400e; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+
+    /* Numbered list with circle */
+    .numbered-item {
+      display: flex;
+      gap: 12px;
+      margin: 12px 0;
+    }
+
+    .numbered-item .num {
+      width: 24px;
+      height: 24px;
+      background: #059669;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    /* Screenshot placeholder */
+    .screenshot {
+      border: 2px dashed #d1d5db;
+      border-radius: 8px;
+      padding: 30px;
+      text-align: center;
+      color: #9ca3af;
+      margin: 15px 0;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 50px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+      text-align: center;
+      color: #9ca3af;
+      font-size: 9pt;
+    }
+
+    /* Print button */
+    .print-btn {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: #059669;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+    }
+
+    .print-btn:hover {
+      background: #047857;
+    }
+
+    @media print {
+      .print-btn { display: none; }
+    }
+
+    /* Flow diagram */
+    .flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .flow-item {
+      background: #f3f4f6;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 10px 15px;
+      text-align: center;
+      font-size: 10pt;
+    }
+
+    .flow-arrow {
+      color: #059669;
+      font-size: 18px;
+    }
+
+    /* Two columns */
+    .two-cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin: 15px 0;
+    }
+
+    @media (max-width: 600px) {
+      .two-cols {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">CBT</div>
+  <h1>PANDUAN CBT ONLINE + GOOGLE SHEETS</h1>
+  <p class="subtitle">Generator Si Gatot - Sinkronisasi Hasil Ujian ke Google Sheets</p>
+</div>
+
+<!-- RINGKASAN -->
+<h2>📋 Ringkasan</h2>
+
+<div class="card card-green">
+  <p>Dengan fitur <strong>Google Apps Script</strong>, hasil ujian siswa akan tersimpan otomatis ke <strong>Google Sheets</strong> (Excel Online) setiap siswa menyelesaikan ujian.</p>
+</div>
+
+<h3>Alur Kerja</h3>
+<div class="flow">
+  <div class="flow-item">Guru buat soal di Word</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-item">Upload ke Si Gatot CBT</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-item">Generate CBT.html</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-item">Bagikan ke Siswa</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-item">Hasil ke Google Sheets</div>
+</div>
+
+<h3>Fitur</h3>
+<span class="badge badge-green">Auto Save</span>
+<span class="badge badge-blue">Google Sheets</span>
+<span class="badge badge-purple">Real-time</span>
+<span class="badge badge-amber">Offline Capable</span>
+<span class="badge badge-red">Tanpa Server</span>
+
+<!-- BAGIAN 1: TANPA GOOGLE SHEETS -->
+<h2 class="page-break">1️⃣ Mode Offline (Tanpa Google Sheets)</h2>
+
+<div class="card card-amber">
+  <h3>Bagaimana Cara Kerjanya?</h3>
+  <p>Tanpa sinkronisasi Google Sheets, siswa tetap bisa mengerjakan ujian. Setiap siswa mengunduh <strong>bukti hasil</strong> berupa file yang berisi:</p>
+  <ul>
+    <li>Nama & Kelas</li>
+    <li>Jawaban yang dipilih</li>
+    <li>Skor/Hasil</li>
+    <li>Waktu mengerjakan</li>
+  </ul>
+</div>
+
+<h3>Langkah-Langkah:</h3>
+
+<div class="step">
+  <div class="step-number">1</div>
+  <div class="step-content">
+    <div class="step-title">Siapkan Naskah Soal di Word</div>
+    <p>Buat soal dengan format yang benar. Kosongkan kolom URL Google Apps Script.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">2</div>
+  <div class="step-content">
+    <div class="step-title">Generate CBT.html</div>
+    <p>Klik "Generate & Unduh CBT.html"</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">3</div>
+  <div class="step-content">
+    <div class="step-title">Bagikan ke Siswa</div>
+    <p>Kirim file CBT.html via WhatsApp, email, Google Classroom, atau hosting ke web.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">4</div>
+  <div class="step-content">
+    <div class="step-title">Siswa Mengerjakan</div>
+    <p>Siswa buka file, isi nama/kelas, lalu kerjakan soal. Setelah selesai, klik "Selesai Ujian".</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">5</div>
+  <div class="step-content">
+    <div class="step-title">Siswa Unduh Bukti Hasil</div>
+    <p>File bukti hasil bisa diprint atau dikirim ke guru via WhatsApp/email.</p>
+  </div>
+</div>
+
+<div class="tip">
+  <strong>Tips:</strong> Mode offline cocok untuk ujian di ruang komputerLAB yang tidak terhubung internet, atau jika belum punya akun Google.
+</div>
+
+<!-- BAGIAN 2: DENGAN GOOGLE SHEETS -->
+<h2 class="page-break">2️⃣ Mode Online (Dengan Google Sheets)</h2>
+
+<div class="card card-green">
+  <h3>Keuntungan Menggunakan Google Sheets:</h3>
+  <ul>
+    <li>✅ Hasil ujian <strong>tersimpan otomatis</strong> ke spreadsheet</li>
+    <li>✅ Guru bisa memantau <strong>real-time</strong> siapa saja yang sudah mengerjakan</li>
+    <li>✅ Tidak perlu kumpulkan bukti hasil dari setiap siswa</li>
+    <li>✅ Data terpusat dan mudah diolah (Excel/Google Sheets)</li>
+    <li>✅ Bisa langsung hitung statistik, grafik, ranking</li>
+  </ul>
+</div>
+
+<h3>Yang Dibutuhkan:</h3>
+<ul>
+  <li>Akun Google (Gmail)</li>
+  <li>Aplikasi Google Sheets (gratis)</li>
+  <li>Koneksi internet saat ujian (untuk siswa)</li>
+</ul>
+
+<!-- LANGKAH 1: BUAT SPREADSHEET -->
+<h3>Langkah 1: Buat Google Sheets Baru</h3>
+
+<div class="step">
+  <div class="step-number">1</div>
+  <div class="step-content">
+    <div class="step-title">Buka Google Sheets</div>
+    <p>Buka <strong>sheets.google.com</strong> dan login dengan akun Google Anda.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">2</div>
+  <div class="step-content">
+    <div class="step-title">Buat Spreadsheet Baru</div>
+    <p>Klik <strong>"+ Blank"</strong> atau <strong>"Baru → Google Sheets → Blank spreadsheet"</strong></p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">3</div>
+  <div class="step-content">
+    <div class="step-title">Beri Nama</div>
+    <p>Ubah nama menjadi, contoh: <strong>"Hasil Ujian IPA Kelas 7A"</strong></p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">4</div>
+  <div class="step-content">
+    <div class="step-title">Siapkan Header Kolom</div>
+    <p>Di baris pertama, isi header seperti ini:</p>
+    <pre><code>Timestamp | Nama | Kelas | Skor | Jawaban | Durasi (menit)</code></pre>
+    <p class="tip" style="margin-top: 10px;">Ini adalah header WAJIB. Jangan diubah urutannya.</p>
+  </div>
+</div>
+
+<div class="warning">
+  <strong>Perhatikan:</strong> Kolom harus persis berurutan: Timestamp, Nama, Kelas, Skor, Jawaban, Durasi. Urutan ini WAJIB sesuai karena CBT akan mengirim data berdasarkan urutan kolom.
+</div>
+
+<!-- LANGKAH 2: BUAT GOOGLE APPS SCRIPT -->
+<h2 class="page-break">3️⃣ Buat Google Apps Script</h2>
+
+<div class="card card-blue">
+  <h3>Apa itu Google Apps Script?</h3>
+  <p>Google Apps Script adalah kode yang menghubungkan CBT dengan Google Sheets Anda. Kode ini berjalan di server Google, sehingga tidak perlu hosting sendiri.</p>
+</div>
+
+<h3>Langkah-Langkah:</h3>
+
+<div class="step">
+  <div class="step-number">1</div>
+  <div class="step-content">
+    <div class="step-title">Buka Apps Script</div>
+    <p>Di spreadsheet Anda, klik menu: <strong>Extensions → Apps Script</strong></p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">2</div>
+  <div class="step-content">
+    <div class="step-title">Hapus Kode Default</div>
+    <p>Di editor kode yang muncul, hapus semua kode yang ada (biasanya function myFunction).</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">3</div>
+  <div class="step-content">
+    <div class="step-title">Salin Kode Berikut:</div>
+    <pre><code>function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+
+  try {
+    var data = JSON.parse(e.postData.contents);
+
+    var timestamp = new Date();
+    var nama = data.nama || '';
+    var kelas = data.kelas || '';
+    var skor = data.skor || 0;
+    var jawaban = JSON.stringify(data.jawaban || {});
+    var durasi = data.durasi || 0;
+
+    sheet.appendRow([timestamp, nama, kelas, skor, jawaban, durasi]);
+
+    return ContentService
+      .createTextOutput(JSON.stringify({status: 'success'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({status: 'error', message: error.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}</code></pre>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">4</div>
+  <div class="step-content">
+    <div class="step-title">Simpan Kode</div>
+    <p>Klik tombol <strong>💾 Save</strong> (disk icon) atau Ctrl+S.</p>
+  </div>
+</div>
+
+<div class="warning">
+  <strong>Jangan ubah nama fungsinya!</strong> Nama function harus tetap <code>doPost(e)</code> karena itu yang dipanggil oleh CBT.
+</div>
+
+<!-- LANGKAH 3: DEPLOY -->
+<h2 class="page-break">4️⃣ Deploy sebagai Web App</h2>
+
+<div class="step">
+  <div class="step-number">1</div>
+  <div class="step-content">
+    <div class="step-title">Buka Deploy Options</div>
+    <p>Klik <strong>Deploy → New deployment</strong></p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">2</div>
+  <div class="step-content">
+    <div class="step-title">Pengaturan Deployment</div>
+    <p>Klik ikon <strong>⚙️ Select type → Web app</strong></p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">3</div>
+  <div class="step-content">
+    <div class="step-title">Konfigurasi Web App</div>
+    <p>Isi pengaturan seperti ini:</p>
+    <table>
+      <tr><td><strong>Description</strong></td><td>Si Gatot CBT Results</td></tr>
+      <tr><td><strong>Execute as</strong></td><td>Me (alamat email Anda)</td></tr>
+      <tr><td><strong>Who has access</strong></td><td>Anyone (atau "Anyone with Google account")</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">4</div>
+  <div class="step-content">
+    <div class="step-title">Deploy</div>
+    <p>Klik <strong>Deploy</strong> dan tunggu proses selesai.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">5</div>
+  <div class="step-content">
+    <div class="step-title">Copy URL</div>
+    <p>Setelah berhasil, akan muncul <strong>Web app URL</strong>. <strong>Copy URL tersebut.</strong></p>
+    <p class="tip">Contoh URL: <code>https://script.google.com/macros/s/AKfycbw.../exec</code></p>
+  </div>
+</div>
+
+<div class="important">
+  <strong>Penting:</strong> Setiap kali Anda mengubah kode Apps Script, Anda harus <strong>Deploy ulang</strong> (Deploy → Manage deployments → Edit → Deploy) untuk memperbarui URL.
+</div>
+
+<!-- LANGKAH 4: UJI COBA -->
+<h2 class="page-break">5️⃣ Uji Coba</h2>
+
+<div class="step">
+  <div class="step-number">1</div>
+  <div class="step-content">
+    <div class="step-title">Buka URL di Browser</div>
+    <p>Buka URL Web app yang sudah dicopy di browser baru (incognito lebih baik).</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">2</div>
+  <div class="step-content">
+    <div class="step-title">Test Kirim Data</div>
+    <p>Jika muncul error atau halaman kosong dengan <code>{"status": "success"}</code>, berarti berhasil!</p>
+    <p>Jika muncul halaman login Google, berarti pengaturan "Who has access" kurang. Ubah ke <strong>Anyone</strong>.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">3</div>
+  <div class="step-content">
+    <div class="step-title">Cek Google Sheets</div>
+    <p>Buka spreadsheet Anda. Seharusnya ada baris baru dengan timestamp. Jika ada, berarti <strong>koneksi berhasil!</strong></p>
+  </div>
+</div>
+
+<div class="tip">
+  <strong>Tips:</strong> Test dengan data dummy dulu sebelum ujian sebenarnya.
+</div>
+
+<!-- LANGKAH 5: GUNAKAN DI CBT -->
+<h2>6️⃣ Gunakan di Generator CBT Si Gatot</h2>
+
+<div class="step">
+  <div class="step-number">1</div>
+  <div class="step-content">
+    <div class="step-title">Buka Si Gatot CBT</div>
+    <p>Buka aplikasi Si Gatot dan pilih <strong>Generator CBT</strong>.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">2</div>
+  <div class="step-content">
+    <div class="step-title">Upload Naskah Soal</div>
+    <p>Upload file .docx yang sudah disiapkan.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">3</div>
+  <div class="step-content">
+    <div class="step-title">Tempel URL Apps Script</div>
+    <p>Di kolom <strong>"URL Google Apps Script"</strong>, tempel URL yang sudah dicopy tadi.</p>
+    <pre><code>https://script.google.com/macros/s/AKfycbw.../exec</code></pre>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">4</div>
+  <div class="step-content">
+    <div class="step-title">Generate CBT</div>
+    <p>Klik <strong>Generate & Unduh CBT.html</strong></p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-number">5</div>
+  <div class="step-content">
+    <div class="step-title">Bagikan ke Siswa</div>
+    <p>File CBT.html sudah otomatis terhubung ke Google Sheets Anda.</p>
+  </div>
+</div>
+
+<div class="tip">
+  <strong>Selesai!</strong> Sekarang setiap siswa yang mengerjakan akan otomatis tercatat di Google Sheets Anda.
+</div>
+
+<!-- TIPS & TROUBLESHOOTING -->
+<h2 class="page-break">7️⃣ Tips & Troubleshooting</h2>
+
+<h3>Tips Penting:</h3>
+
+<table>
+  <tr><th>Tips</th><th>Penjelasan</th></tr>
+  <tr>
+    <td>Gunakan spreadsheet TERPISAH</td>
+    <td>Gunakan 1 spreadsheet per kelas per ujian agar data tidak campur aduk.</td>
+  </tr>
+  <tr>
+    <td>Test sebelum ujian</td>
+    <td>Lakukan test upload dan kerjakan dummy 1 soal sebelum ujian正式开始.</td>
+  </tr>
+  <tr>
+    <td>Backup rutin</td>
+    <td>Download hasil sebagai Excel secara berkala sebagai backup.</td>
+  </tr>
+  <tr>
+    <td>Pastikan siswa online</td>
+    <td>Sinkronisasi butuh koneksi internet. Siswa bisa kerjakan offline tapi hasil sync saat koneksi tersedia.</td>
+  </tr>
+</table>
+
+<h3>Troubleshooting:</h3>
+
+<table>
+  <tr><th>Masalah</th><th>Solusi</th></tr>
+  <tr>
+    <td>"URL tidak valid"</td>
+    <td>Pastikan URL Apps Script benar dan sudah di-deploy dengan "Anyone" access.</td>
+  </tr>
+  <tr>
+    <td>Hasil tidak muncul di Sheets</td>
+    <td>
+      <ol>
+        <li>Cek apakah URL Apps Script masih aktif (buka di browser)</li>
+        <li>Pastikan urutan kolom header sudah benar</li>
+        <li>Cek apakah ada error di Apps Script (Extensions → Apps Script → Executions)</li>
+      </ol>
+    </td>
+  </tr>
+  <tr>
+    <td>Error CORS</td>
+    <td>Hapus https:// dari awal URL Apps Script (cukup yang dari /macros/...)</td>
+  </tr>
+  <tr>
+    <td>Data tidak sinkron</td>
+    <td>Pastikan siswa klik "Selesai Ujian" di akhir. Data dikirim saat siswa submit.</td>
+  </tr>
+  <tr>
+    <td>Spreadsheet penuh/berat</td>
+    <td>Hapus baris kosong atau backup ke file terpisah, lalu kosongkan spreadsheet.</td>
+  </tr>
+</table>
+
+<!-- FORMAT DATA -->
+<h2 class="page-break">8️⃣ Format Data Hasil</h2>
+
+<div class="card card-purple">
+  <h3>Data yang Tersimpan di Sheets:</h3>
+  <table>
+    <tr><th>Kolom</th><th>Format</th><th>Contoh</th></tr>
+    <tr><td>Timestamp</td><td>Date/Time</td><td>20/07/2026 14:30:45</td></tr>
+    <tr><td>Nama</td><td>Text</td><td>Budi Santoso</td></tr>
+    <tr><td>Kelas</td><td>Text</td><td>VII-A</td></tr>
+    <tr><td>Skor</td><td>Number</td><td>85</td></tr>
+    <tr><td>Jawaban</td><td>JSON String</td><td>{"1":"A","2":"C","3":"B"}</td></tr>
+    <tr><td>Durasi (menit)</td><td>Number</td><td>45</td></tr>
+  </table>
+</div>
+
+<div class="tip">
+  <strong>Tips:</strong> Kolom Jawaban berisi JSON. Untuk melihat dalam format lebih rapi, bisa gunakan formula atau parse di Excel/Sheets.
+</div>
+
+<!-- KODE BACKUP -->
+<h2 class="page-break">9️⃣ Kode Lengkap (Backup)</h2>
+
+<div class="card card-blue">
+  <h3>Kode Google Apps Script untuk Backup:</h3>
+  <pre><code>function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+
+  try {
+    var data = JSON.parse(e.postData.contents);
+
+    var timestamp = new Date();
+    var nama = data.nama || '';
+    var kelas = data.kelas || '';
+    var skor = data.skor || 0;
+    var jawaban = JSON.stringify(data.jawaban || {});
+    var durasi = data.durasi || 0;
+
+    sheet.appendRow([timestamp, nama, kelas, skor, jawaban, durasi]);
+
+    return ContentService
+      .createTextOutput(JSON.stringify({status: 'success'}))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({status: 'error', message: error.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// Fungsi tambahan untuk parse jawaban JSON
+function parseJawaban() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var lastRow = sheet.getLastRow();
+
+  for (var i = 2; i <= lastRow; i++) {
+    var jawabanStr = sheet.getRange(i, 5).getValue();
+    try {
+      var jawaban = JSON.parse(jawabanStr);
+      // Parse sesuai kebutuhan
+      var soal1 = jawaban["1"] || "-";
+      var soal2 = jawaban["2"] || "-";
+      // Tambahkan kolom baru untuk jawaban terpisah
+      // sheet.getRange(i, 7).setValue(soal1);
+      // sheet.getRange(i, 8).setValue(soal2);
+    } catch (e) {
+      // Bukan JSON valid, skip
+    }
+  }
+}</code></pre>
+</div>
+
+<!-- FLOWCARD -->
+<h2 class="page-break">📋 Quick Reference Card</h2>
+
+<div class="two-cols">
+  <div class="card card-green">
+    <h4>Mode Offline:</h4>
+    <ol>
+      <li>Generate CBT tanpa URL Apps Script</li>
+      <li>Bagikan CBT.html ke siswa</li>
+      <li>Siswa download bukti hasil</li>
+      <li>Kumpulkan bukti hasil</li>
+    </ol>
+  </div>
+
+  <div class="card card-blue">
+    <h4>Mode Online:</h4>
+    <ol>
+      <li>Buat Google Sheets + header</li>
+      <li>Buat Apps Script + Deploy</li>
+      <li>Generate CBT dengan URL</li>
+      <li>Hasil otomatis tersimpan</li>
+    </ol>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <p>Panduan CBT Online + Google Sheets - Si Gatot Generator</p>
+  <p>© 2026 | Dibuat untuk kemudahan pengelolaan ujian</p>
+</div>
+
+<!-- PRINT BUTTON -->
+<button class="print-btn" onclick="window.print()">🖨️ Cetak / Save as PDF</button>
+
+</body>
+</html>
