@@ -8,7 +8,9 @@ import { verifyApprovedUser } from './_lib/auth.js'
 
 export const maxDuration = 60
 
-const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite']
+// Model yang tersedia — coba dari terbaik-tercepat.
+// Kalau model utama error, otomatis coba model cadangan berikutnya.
+const MODELS = ['gemini-2.0-flash-exp', 'gemini-exp', 'gemini-1.5-flash-latest', 'gemini-1.5-flash'];
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
