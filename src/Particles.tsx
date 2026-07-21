@@ -8,6 +8,8 @@ export default function Particles() {
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
     let animationId;
     const particles = [];
     const particleCount = 50;
@@ -24,7 +26,7 @@ export default function Particles() {
       vy: (Math.random() - 0.5) * 0.5,
       size: Math.random() * 2 + 1,
       opacity: Math.random() * 0.5 + 0.1,
-      color: `rgba(${Math.random() > 0.5 ? '96, 165, 250' : '167, 139, 250'}, `,
+      blue: Math.random() > 0.5,
     });
 
     const init = () => {
@@ -49,7 +51,9 @@ export default function Particles() {
         // Draw particle
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `${p.color}${p.opacity})`;
+        ctx.fillStyle = p.blue
+          ? `rgba(96, 165, 250, ${p.opacity})`
+          : `rgba(167, 139, 250, ${p.opacity})`;
         ctx.fill();
 
         // Draw connections
@@ -62,7 +66,9 @@ export default function Particles() {
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p2.x, p2.y);
-            ctx.strokeStyle = `${p.color}${(1 - dist / 100) * 0.2})`;
+            ctx.strokeStyle = p.blue
+              ? `rgba(96, 165, 250, ${(1 - dist / 100) * 0.2})`
+              : `rgba(167, 139, 250, ${(1 - dist / 100) * 0.2})`;
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }
@@ -88,7 +94,15 @@ export default function Particles() {
     <canvas
       ref={canvasRef}
       id="particles-canvas"
-      style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }}
     />
   );
 }
