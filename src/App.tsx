@@ -2769,6 +2769,22 @@ Kunci: 144
         </div>
         )}
 
+        {/* Footer */}
+        <footer className="mt-16 py-8 border-t border-slate-200 dark:border-slate-700 text-center">
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+              <img src="/logo-si-gatot.png" alt="Si Gatot" className="w-6 h-6 rounded-md opacity-70" />
+              <span className="text-sm">Si Gatot Generator</span>
+            </div>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              Dibuat dengan ❤️ oleh <span className="font-semibold text-blue-600 dark:text-blue-400">PakBayu07</span>
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              © {new Date().getFullYear()} Hak Cipta Dilindungi
+            </p>
+          </div>
+        </footer>
+
       </div>
     </div>
   );
