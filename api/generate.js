@@ -10,7 +10,10 @@ export const maxDuration = 60
 
 // Model yang tersedia — coba dari terbaik-tercepat.
 // Kalau model utama error, otomatis coba model cadangan berikutnya.
-const MODELS = ['gemini-2.0-flash-exp', 'gemini-exp', 'gemini-1.5-flash-latest', 'gemini-1.5-flash'];
+// 'gemini-flash-latest' adalah alias resmi Google yang otomatis mengikuti
+// model Flash terbaru, jadi daftar ini tidak perlu diupdate manual tiap
+// kali Google merilis generasi model baru.
+const MODELS = ['gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-3-flash', 'gemini-2.5-flash'];
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -57,9 +60,16 @@ export default async function handler(req, res) {
       lastStatus = response.status
       lastErrorBody = data
 
-      // Overload (503) atau rate limit (429) → coba model cadangan berikutnya.
+      // Deteksi pesan "model tidak tersedia / deprecated" dari Google
+      // (misalnya "is no longer available to new users") supaya otomatis
+      // pindah ke model cadangan berikutnya, bukan langsung gagal total.
+      const msg = (data && data.error && data.error.message) || ''
+      const modelUnavailable = /no longer available|not found|not supported|deprecated/i.test(msg)
+
+      // Overload (503), rate limit (429), atau model tidak tersedia (400/404
+      // dengan pesan di atas) → coba model cadangan berikutnya.
       // Error lain (key salah, request invalid) → langsung berhenti, percuma dicoba model lain.
-      if (response.status !== 503 && response.status !== 429) {
+      if (response.status !== 503 && response.status !== 429 && !modelUnavailable) {
         return res.status(response.status).json(data)
       }
     } catch (err) {
