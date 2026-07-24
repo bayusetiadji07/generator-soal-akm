@@ -3,6 +3,7 @@ import { parseSoalDariHtml, validateSoal, type SoalParsed } from './cbtParser';
 import { buildCbtHtml } from './cbtTemplate';
 import { Document, Packer, Paragraph, ImageRun, Table, TableRow, TableCell } from 'docx';
 import { supabase } from './supabaseClient';
+import GeneratingLoader from './GeneratingLoader';
 
 declare const mammoth: any;
 
@@ -1665,10 +1666,7 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
 
         <div className="flex-1 bg-gray-50 rounded-xl border border-gray-200 p-4 md:p-8 overflow-y-auto" style={{ minHeight: '500px', maxHeight: '800px' }}>
           {isGenerating ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-4">
-              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-              <p className="animate-pulse">{loadingStatus}</p>
-            </div>
+            <GeneratingLoader status={loadingStatus} />
           ) : generatedHtml ? (
             <div
               ref={resultRef}
@@ -2777,6 +2775,22 @@ Kunci: 144
           {cbtPreviewPanel}
         </div>
         )}
+
+        {/* Footer */}
+        <footer className="mt-16 py-8 border-t border-slate-200 dark:border-slate-700 text-center">
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+              <img src="/logo-si-gatot.png" alt="Si Gatot" className="w-6 h-6 rounded-md opacity-70" />
+              <span className="text-sm">Si Gatot Generator</span>
+            </div>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              Dibuat dengan ❤️ oleh <span className="font-semibold text-blue-600 dark:text-blue-400">PakBayu07</span>
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              © {new Date().getFullYear()} Hak Cipta Dilindungi
+            </p>
+          </div>
+        </footer>
 
       </div>
     </div>
