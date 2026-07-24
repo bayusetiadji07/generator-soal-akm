@@ -1258,7 +1258,16 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
       const bisaMulaiSoal = tag !== 'table' && tag !== 'ol' && tag !== 'ul';
       if (nm && !looksLikeOption && bisaMulaiSoal) {
         pushCur();
-        cur = { num: nm.num, tanya: nm.sisa, opsi: [], subItem: [], jodohKanan: [], tabel: [], gambar: [...media], tipe: null };
+        // Tanda isian ("_______") lazim menyatu di baris yang sama dgn nomor soal, mis.
+        // "5. Hasil dari 12 x 12 adalah ... _______" — kalau tidak dicek di sini, soal ISIAN
+        // ini tidak pernah dapat tipe & jatuh ke default ESSAY (kehilangan kuncinya).
+        const isianDiSoalAwal = /_{3,}/.test(nm.sisa);
+        cur = {
+          num: nm.num,
+          tanya: isianDiSoalAwal ? nm.sisa.replace(/_{3,}/g, '').trim() : nm.sisa,
+          opsi: [], subItem: [], jodohKanan: [], tabel: [], gambar: [...media],
+          tipe: isianDiSoalAwal ? 'ISIAN' : null,
+        };
         continue;
       }
       if (!cur) continue;
