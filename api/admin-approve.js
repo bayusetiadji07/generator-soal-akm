@@ -10,8 +10,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, approve } = req.body || {}
+    const { password, userId, approve } = req.body || {}
 
+    if (!process.env.ADMIN_PASSWORD) {
+      return res.status(200).json({ ok: false, message: 'Server belum dikonfigurasi (ADMIN_PASSWORD belum diset).' })
+    }
+    if (password !== process.env.ADMIN_PASSWORD) {
+      return res.status(401).json({ ok: false, message: 'Password admin salah.' })
+    }
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return res.status(200).json({ ok: false, message: 'SUPABASE_SERVICE_ROLE_KEY not set' })
     }

@@ -1,7 +1,19 @@
-// Vercel Serverless Function — daftar semua akun Si Gatot
+// Vercel Serverless Function — daftar semua akun Si Gatot. POST (bukan GET) supaya password
+// dikirim di body, bukan query string (query string gampang tercatat di access log/riwayat browser).
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).json({})
+  }
+  if (req.method !== 'POST') {
+    return res.status(405).json({ ok: false, message: 'Method not allowed' })
+  }
+
+  const { password } = req.body || {}
+  if (!process.env.ADMIN_PASSWORD) {
+    return res.status(200).json({ ok: false, message: 'Server belum dikonfigurasi (ADMIN_PASSWORD belum diset).' })
+  }
+  if (password !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ ok: false, message: 'Password admin salah.' })
   }
 
   const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wddfpmsurcftapbczise.supabase.co'
@@ -25,11 +37,6 @@ export default async function handler(req, res) {
     const usersData = await usersRes.json()
     const allAuthUsers = usersData.users || []
 
-    // Filter: hanya user yang punya app='sigatot' di metadata
-    const siGatotAuthUsers = allAuthUsers.filter(u =>
-      u.user_metadata?.app === 'sigatot'
-    )
-
     // Ambil SEMUA profile dari sigatot_profiles
     const profilesRes = await fetch(
       `${SUPABASE_URL}/rest/v1/sigatot_profiles?select=*`,
@@ -41,19 +48,16 @@ export default async function handler(req, res) {
       profiles = await profilesRes.json()
     }
 
-    // Buat map profile berdasarkan user ID
-    const profileMap = {}
-    profiles.forEach(p => {
-      profileMap[p.id] = p
-    })
-
-    // Gabungkan data - langsung dari profile, bukan dari auth filter
-    // Ini lebih akurat karena is_approved ada di profile
+    // Gabungkan data, TAPI hanya user yang metadata-nya benar-benar app='sigatot' yang ditampilkan.
+    // Lapis pengaman kedua ini penting: project Supabase ini dipakai bersama aplikasi lain
+    // (e-asesmen, si-diswa) yg berbagi tabel auth.users yang sama — pernah kejadian tabel
+    // sigatot_profiles ikut kemasukan ratusan akun aplikasi lain krn bug di trigger DB.
+    // Filter di sini jadi jaring pengaman kedua di luar perbaikan triggernya sendiri.
     const users = []
 
     for (const profile of profiles) {
       const authUser = allAuthUsers.find(u => u.id === profile.id)
-      if (authUser) {
+      if (authUser && authUser.user_metadata?.app === 'sigatot') {
         users.push({
           id: profile.id,
           email: authUser.email || profile.email || '',

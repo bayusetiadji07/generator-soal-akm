@@ -9,22 +9,30 @@ interface AdminUser {
   approved_at: string | null;
 }
 
-// Panel admin sederhana — diakses lewat /admin
+// Panel admin sederhana — diakses lewat /admin, dilindungi ADMIN_PASSWORD (env var server).
 export default function AdminPanel() {
+  const [password, setPassword] = useState(() => sessionStorage.getItem('sigatot_admin_pw') || '');
+  const [unlocked, setUnlocked] = useState(false);
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const muat = async () => {
+  const muat = async (pw: string) => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/admin-list');
+      const res = await fetch('/api/admin-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
       const data = await res.json();
-      if (!data.ok) { setError(data.message || 'Gagal memuat.'); setUsers([]); setLoading(false); return; }
+      if (!data.ok) { setError(data.message || 'Gagal memuat.'); setUnlocked(false); setLoading(false); return; }
       setUsers(data.users || []);
+      setUnlocked(true);
+      sessionStorage.setItem('sigatot_admin_pw', pw);
     } catch {
       setError('Gagal menghubungi server.');
     }
@@ -32,7 +40,8 @@ export default function AdminPanel() {
   };
 
   useEffect(() => {
-    muat();
+    if (password) muat(password);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const setujui = async (userId: string, approve: boolean) => {
@@ -42,7 +51,7 @@ export default function AdminPanel() {
       const res = await fetch('/api/admin-approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, approve }),
+        body: JSON.stringify({ password, userId, approve }),
       });
       const data = await res.json();
       if (data.ok) {
@@ -82,6 +91,34 @@ export default function AdminPanel() {
     }
   };
 
+  if (!unlocked) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans">
+        <form
+          onSubmit={(e) => { e.preventDefault(); muat(password); }}
+          className="w-full max-w-sm bg-white rounded-2xl p-8 shadow-sm border border-gray-100"
+        >
+          <h1 className="text-lg font-bold text-gray-900 mb-4 text-center">Panel Admin — Si Gatot</h1>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password admin"
+            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none mb-3"
+          />
+          {error && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl border border-red-200 mb-3">{error}</div>}
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-3 rounded-xl font-medium text-white ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+          >
+            {loading ? 'Memeriksa...' : 'Masuk'}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
       <div className="max-w-2xl mx-auto space-y-6">
@@ -92,7 +129,7 @@ export default function AdminPanel() {
             <p className="text-sm text-gray-500">Kelola akses pengguna</p>
           </div>
           <button
-            onClick={muat}
+            onClick={() => muat(password)}
             disabled={loading}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
           >
