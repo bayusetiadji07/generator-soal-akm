@@ -1150,6 +1150,25 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     return els;
   };
 
+  // Ambil semua huruf kunci (A-E) dari teks bagian D, toleran thd berbagai gaya penulisan AI:
+  // "B", "A, C", "A dan C", "A/C", "A & C", "(B)", bahkan tanpa pemisah sama sekali "AC"/"ACD".
+  const extractKunciLetters = (raw) => {
+    const cleaned = String(raw || '').replace(/\bdan\b/gi, ' ').replace(/[,;/&]/g, ' ');
+    const letters = [];
+    cleaned.split(/\s+/).forEach((tok) => {
+      const stripped = tok.replace(/[^A-Za-z]/g, ''); // pertahankan huruf besar/kecil aslinya
+      if (!stripped) return;
+      if (stripped.length === 1) {
+        if (/^[A-E]$/i.test(stripped)) letters.push(stripped.toUpperCase());
+        return;
+      }
+      // Token multi-huruf HANYA diterima kalau semua huruf besar di teks asli (mis. "AC", "ABD") —
+      // kalau ada huruf kecil kemungkinan besar itu kata biasa (mis. "ada", "cab"), bukan kunci.
+      if (/^[A-E]+$/.test(stripped)) letters.push(...stripped.split(''));
+    });
+    return letters;
+  };
+
   // Cocokkan awal entri bernomor, toleran thd variasi AI: "1.", "1)", "Soal 1:", "No. 1 -", dst
   const matchNomorAwal = (text) => {
     const m = text.match(/^(?:soal\s*)?(?:no\.?\s*)?(\d{1,3})\s*[.):\-]\s*(.*)$/i)
@@ -1352,8 +1371,9 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
         kunciTidakTerbaca: false,
       };
       if (tipe === 'PG' || tipe === 'PGK') {
-        // Kunci bisa berupa huruf ("B", "A dan C") ATAU teks jawaban yang dikutip ulang.
-        const letters = Array.from(kunciRaw.toUpperCase().matchAll(/(?:^|[^A-Z])([A-E])(?![A-Z])/g)).map((mm) => mm[1]);
+        // Kunci bisa berupa huruf ("B", "A, C", "A dan C", atau tanpa pemisah "AC") ATAU teks
+        // jawaban yang dikutip ulang/disebut dalam kalimat penjelasan.
+        const letters = extractKunciLetters(kunciRaw);
         const normalize = (t) => t.toLowerCase().replace(/[^a-z0-9]/g, '');
         const kunciNorm = normalize(kunciRaw);
         soal.opsi = s.opsi.map((o, idx) => {
@@ -1362,7 +1382,17 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
           const byText = kunciNorm.length > 2 && normalize(o.teks).length > 2 && kunciNorm.includes(normalize(o.teks));
           return { teks: o.teks, benar: byLetter || byText };
         });
-        const jmlBenar = soal.opsi.filter((o) => o.benar).length;
+        let jmlBenar = soal.opsi.filter((o) => o.benar).length;
+        // PG: kalau tak ada huruf/teks yang cocok sama sekali tapi kunci berupa angka polos
+        // (mis. "2"), tafsirkan sbg posisi opsi ke-N (1-based) - beberapa model sesekali
+        // menjawab pakai nomor urut, bukan huruf, meski sudah diminta huruf.
+        if (tipe === 'PG' && jmlBenar === 0) {
+          const posisi = kunciRaw.match(/^\s*(\d{1,2})\s*$/);
+          if (posisi) {
+            const idx = parseInt(posisi[1], 10) - 1;
+            if (soal.opsi[idx]) { soal.opsi[idx].benar = true; jmlBenar = 1; }
+          }
+        }
         if (tipe === 'PG' && jmlBenar !== 1) soal.kunciTidakTerbaca = true;
         if (tipe === 'PGK' && jmlBenar < 1) soal.kunciTidakTerbaca = true;
       } else if (tipe === 'ISIAN') {
