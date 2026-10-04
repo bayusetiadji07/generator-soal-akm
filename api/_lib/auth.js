@@ -143,3 +143,25 @@ export async function sendInviteEmail(userEmail, userName) {
     return { success: false, error: err.message };
   }
 }
+
+// Catatan pemakaian (F14): akun, mode, waktu, berhasil/gagal — TANPA isi dokumen.
+// Tabel sigatot_pemakaian (RLS aktif tanpa policy klien; hanya service_role di sini yang menulis).
+// Tidak boleh pernah menggagalkan permintaan AI: semua galat ditelan, dan dibatasi 2 detik.
+export async function catatPemakaian(userId, mode, berhasil) {
+  if (!userId || !process.env.SUPABASE_SERVICE_ROLE_KEY) return
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 2000)
+  try {
+    const m = typeof mode === 'string' && /^[a-z0-9_-]{1,20}$/.test(mode) ? mode : 'lain'
+    await fetch(`${SUPABASE_URL}/rest/v1/sigatot_pemakaian`, {
+      method: 'POST',
+      headers: { ...serviceHeaders(), Prefer: 'return=minimal' },
+      body: JSON.stringify({ user_id: userId, mode: m, berhasil: !!berhasil }),
+      signal: ctrl.signal,
+    })
+  } catch {
+    /* abaikan */
+  } finally {
+    clearTimeout(timer)
+  }
+}

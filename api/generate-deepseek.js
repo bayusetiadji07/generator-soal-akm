@@ -7,7 +7,7 @@
 // Respons dikonversi ke BENTUK YANG SAMA seperti Gemini (candidates[0].content.parts[0].text)
 // supaya kode frontend (fetchWithRetry, dst.) tidak perlu cabang logika terpisah per provider.
 
-import { verifyApprovedUser } from './_lib/auth.js'
+import { verifyApprovedUser, catatPemakaian } from './_lib/auth.js'
 
 export const maxDuration = 60
 
@@ -38,10 +38,13 @@ export default async function handler(req, res) {
     return res.status(access.status).json({ error: { message: access.message } })
   }
 
+  const catat = (ok) => catatPemakaian(access.user.id, body.meta && body.meta.mode, ok)
+
   const userKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : ''
   const payload = body.payload || body
   const apiKey = userKey || process.env.DEEPSEEK_API_KEY
   if (!apiKey) {
+    await catat(false)
     return res.status(400).json({ error: 'API Key DeepSeek belum diisi. Masukkan API Key Anda di aplikasi (dapatkan di platform.deepseek.com/api_keys).' })
   }
 
@@ -51,6 +54,9 @@ export default async function handler(req, res) {
   // DeepSeek membatasi output jauh lebih rendah dari Gemini (maks 8K token keluaran)
   const maxTokens = Math.min(typeof maxTokensRequested === 'number' ? maxTokensRequested : 8192, 8192)
   const temperature = payload?.generationConfig?.temperature ?? 0.9
+  // Mode JSON (Modul Ajar & LKPD): teruskan sebagai response_format. DeepSeek mensyaratkan kata "json"
+  // muncul di prompt — prompt modul memang menyebut JSON.
+  const modeJson = payload?.generationConfig?.responseMimeType === 'application/json'
 
   const messages = []
   if (systemText) messages.push({ role: 'system', content: systemText })
@@ -72,6 +78,7 @@ export default async function handler(req, res) {
           messages,
           max_tokens: maxTokens,
           temperature,
+          ...(modeJson && model === 'deepseek-chat' ? { response_format: { type: 'json_object' } } : {}),
         }),
       })
 
@@ -80,6 +87,7 @@ export default async function handler(req, res) {
       if (response.ok) {
         const text = data?.choices?.[0]?.message?.content || ''
         // Bentuk ulang jadi struktur ala Gemini agar frontend tak perlu logika terpisah
+        await catat(true)
         return res.status(200).json({
           candidates: [{ content: { parts: [{ text }] } }],
         })
@@ -90,6 +98,7 @@ export default async function handler(req, res) {
 
       // Overload/rate-limit → coba model cadangan; error lain (key salah, dll) langsung berhenti
       if (response.status !== 503 && response.status !== 429) {
+        await catat(false)
         return res.status(response.status).json(lastErrorBody)
       }
     } catch (err) {
@@ -98,6 +107,7 @@ export default async function handler(req, res) {
     }
   }
 
+  await catat(false)
   return res.status(lastStatus).json(
     lastErrorBody || { error: { message: 'Semua model DeepSeek sedang sibuk. Coba lagi beberapa saat.' } }
   )

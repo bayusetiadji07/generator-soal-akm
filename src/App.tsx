@@ -4,6 +4,8 @@ import { buildCbtHtml } from './cbtTemplate';
 import { Document, Packer, Paragraph, ImageRun, Table, TableRow, TableCell } from 'docx';
 import { supabase } from './supabaseClient';
 import GeneratingLoader from './GeneratingLoader';
+import { kirimKeAI } from './lib/ai';
+import ModulMode from './modul/ModulMode';
 
 declare const mammoth: any;
 
@@ -753,46 +755,9 @@ PENTING: Output BERHENTI setelah bagian "E. Pembahasan". JANGAN menampilkan pros
     return t;
   };
 
-  const fetchWithRetry = async (payload, retries = 5) => {
-    const delays = [1000, 2000, 4000, 8000, 16000];
-    for (let i = 0; i < retries; i++) {
-      try {
-        const endpoint = aiProvider === 'deepseek' ? '/api/generate-deepseek' : '/api/generate';
-        const { data: sessionData } = await supabase.auth.getSession();
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            apiKey: apiKeySource === 'bawaan' ? '' : apiKey,
-            payload,
-            accessToken: sessionData.session?.access_token || '',
-          })
-        });
-
-        if (!response.ok) {
-          // Ambil pesan error asli dari server/Gemini agar mudah didiagnosa
-          let detail = `HTTP ${response.status}`;
-          try {
-            const errBody = await response.json();
-            detail = errBody?.error?.message || errBody?.error || detail;
-          } catch { /* body bukan JSON */ }
-
-          // Error konfigurasi (key salah/belum diatur, model tidak ada) tidak perlu diulang
-          if (response.status === 400 || response.status === 401 ||
-              response.status === 403 || response.status === 404 || response.status === 500) {
-            throw new Error(detail);
-          }
-          throw new Error(detail);
-        }
-        return await response.json();
-      } catch (err) {
-        if (i === retries - 1) throw err;
-        await new Promise(resolve => setTimeout(resolve, delays[i]));
-      }
-    }
-  };
+  // Pemanggil AI dipindah ke src/lib/ai.ts agar bisa dipakai bersama mode Modul Ajar.
+  const fetchWithRetry = (payload, retries = 5, modeNama = mode || '') =>
+    kirimKeAI(payload, { provider: aiProvider, apiKey, apiKeySource, mode: modeNama, retries });
 
   // Kecilkan data URL gambar ke maxWidth lalu encode ulang jadi JPEG ringan.
   const shrinkDataUrl = (dataUrl, maxWidth = 500, quality = 0.75) => {
@@ -2307,6 +2272,7 @@ Kunci: 144
               {mode === 'akm' && 'Generator AKM — Literasi Numerasi, Kurikulum Merdeka semua Fase (A–F)'}
               {mode === 'tka' && 'Generator TKA — Tes Kemampuan Akademik, jenjang SD & SMP'}
               {mode === 'cbt' && 'Generator CBT — Upload naskah soal Word, jadi aplikasi ujian CBT HTML siap pakai'}
+              {mode === 'modul' && 'Generator Modul Ajar & LKPD — Pembelajaran Mendalam, hasil Word siap disunting'}
               {mode === null && 'Pilih jenis generator soal di bawah untuk mulai'}
             </p>
           </div>
@@ -2331,7 +2297,7 @@ Kunci: 144
           </div>
         </div>
 
-        {(mode === 'akm' || mode === 'tka') && (
+        {(mode === 'akm' || mode === 'tka' || mode === 'modul') && (
           <div className={`rounded-xl border p-3 bg-white shadow-sm ${apiKeySource === 'custom' && !apiKey ? 'border-amber-300 bg-amber-50' : 'border-gray-200'}`}>
             <label className="block text-sm font-medium text-gray-700 mb-2">Provider AI (Teks)</label>
             <div className="flex gap-4 mb-3">
@@ -2423,7 +2389,7 @@ Kunci: 144
         )}
 
         {mode === null && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <button
               type="button"
               onClick={() => switchMode('akm')}
@@ -2451,7 +2417,26 @@ Kunci: 144
               <h3 className="text-lg font-semibold text-gray-900">Generator CBT</h3>
               <p className="text-sm text-gray-500 mt-1">Sudah punya naskah soal di Word? Upload di sini, langsung jadi aplikasi ujian CBT HTML siap dikerjakan siswa — tanpa AI, tanpa server.</p>
             </button>
+            <button
+              type="button"
+              onClick={() => switchMode('modul')}
+              className="text-left bg-white rounded-2xl p-6 shadow-sm border-2 border-gray-100 hover:border-amber-400 hover:shadow-md transition-all"
+            >
+              <div className="w-12 h-12 bg-amber-500 text-white rounded-xl flex items-center justify-center font-bold text-xl mb-3">M</div>
+              <h3 className="text-lg font-semibold text-gray-900">Generator Modul Ajar & LKPD</h3>
+              <p className="text-sm text-gray-500 mt-1">Isi satu formulir, terima modul ajar dan LKPD berkerangka Pembelajaran Mendalam dalam Word. CP dikutip apa adanya, keselarasan tujuan–kegiatan–asesmen diperiksa otomatis.</p>
+            </button>
           </div>
+        )}
+
+        {mode === 'modul' && (
+          <ModulMode
+            callAI={(payload, o) => fetchWithRetry(payload, o?.retries ?? 5, 'modul')}
+            onBuatSoal={(d) => {
+              setFormData(prev => ({ ...prev, mataPelajaran: d.mapel, fase: d.fase, kelas: d.kelas, materi: d.materi, iktp: d.iktp }));
+              switchMode('akm');
+            }}
+          />
         )}
 
         {mode === 'akm' && (

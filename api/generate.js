@@ -8,7 +8,7 @@
 // di-cache sebentar (CACHE_MS) supaya tidak menambah satu request tiap generate.
 // Kalau models.list gagal, dipakai daftar cadangan statis di FALLBACK_MODELS.
 
-import { verifyApprovedUser } from './_lib/auth.js'
+import { verifyApprovedUser, catatPemakaian } from './_lib/auth.js'
 
 export const maxDuration = 60
 
@@ -97,10 +97,13 @@ export default async function handler(req, res) {
     return res.status(access.status).json({ error: { message: access.message } })
   }
 
+  const catat = (ok) => catatPemakaian(access.user.id, body.meta && body.meta.mode, ok)
+
   const userKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : ''
   const payload = body.payload || body
   const apiKey = userKey || process.env.GEMINI_API_KEY
   if (!apiKey) {
+    await catat(false)
     return res.status(400).json({ error: { message: 'API Key Gemini belum diisi. Masukkan API Key Anda di aplikasi (dapatkan gratis di aistudio.google.com/app/apikey).' } })
   }
 
@@ -123,6 +126,7 @@ export default async function handler(req, res) {
 
       if (response.ok) {
         res.setHeader('x-gemini-model', model) // model yang benar-benar dipakai (utk pengecekan)
+        await catat(true)
         return res.status(200).json(normalizeResponse(data))
       }
 
@@ -134,6 +138,7 @@ export default async function handler(req, res) {
       // Masalah pada API KEY (bukan model) -> percuma mencoba model lain, beri pesan jelas.
       const keyInvalid = /api key not valid|api_key_invalid|api key expired|key.*(revoked|leaked|disabled)|permission.*denied|has been suspended/i.test(msg)
       if (keyInvalid || response.status === 401 || response.status === 403) {
+        await catat(false)
         return res.status(response.status === 200 ? 400 : response.status).json({
           error: { message: `API Key Gemini ditolak Google: ${(msg || 'tidak valid').replace(/\.+$/, '')}. Buat key baru di aistudio.google.com/app/apikey lalu tempel ulang di aplikasi.` },
         })
@@ -143,6 +148,7 @@ export default async function handler(req, res) {
       const modelUnavailable = response.status === 404 ||
         /no longer available|not found|not supported|deprecated|not available to new users|unavailable/i.test(msg)
       if (response.status !== 503 && response.status !== 429 && !modelUnavailable) {
+        await catat(false)
         return res.status(response.status).json(data) // error permintaan lain -> berhenti
       }
     } catch (err) {
@@ -152,6 +158,7 @@ export default async function handler(req, res) {
     }
   }
 
+  await catat(false)
   const detail = (lastErrorBody && lastErrorBody.error && lastErrorBody.error.message) || 'Semua model Gemini sedang sibuk atau tidak tersedia.'
   return res.status(lastStatus).json({
     error: { message: `${detail} (dicoba: ${tried.join(', ') || 'tidak ada model'})` },
